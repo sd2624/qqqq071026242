@@ -1,14 +1,22 @@
 {
   "name": "band-api",
   "version": "1.0.0",
-  "description": "BandAPI",
+  "description": "네이버 밴드 OPEN API 를 이용하여 밴드 OPEN API 사용을 간편하게 만들었습니다.",
   "main": "./lib/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "BOOOHK",
-  "license": "ISC",
+  "keywords": ["band-api"],
+  "author": "happysttim <gmlsdyd1023@naver.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Happysttim/band-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Happysttim/band-api/issues"
+  },
+  "homepage": "https://github.com/Happysttim/band-api/blob/master/README.md",
+  "license": "MIT",
   "dependencies": {
     "axios": "^0.19.0"
   }
