@@ -29,10 +29,9 @@ require('band-api').app.config.redirect_uri = 'redirect_uri'; // 필수 등록 X
 <code><b>callbackFunc</b></code> 파라미터는 밴드들의 게시글들을 불러오고 나서 호출되는 콜백함수 입니다.<br>
 이 함수의 파타미터로는 <code><b>err</b></code>, <code><b>name</b></code>, <code><b>key</b></code> 가 있으며 <code><b>name</b></code> 은 밴드의 이름, <code><b>key</b></code>는 밴드의 키값 입니다.
 
-만약 특정 밴드의 다음 게시글 목록을 불러오고 싶다면 
-<code>require('band-api').nextPosts(callbackFunc, _bandIdxOrbandKey, _locale  =  'ko-KR')</code> 로 특정 밴드의 다음 게시글 목록을 불러올 수 있습니다.
-마찬가지로 <code><b>callbackFunc</b></code> 파라미터는 밴드들의 게시글들을 불러오고 나서 호출되는 콜백함수 이며, 해당 콜백함수의 파타미터로는 <code><b>err</b></code>, <code><b>key</b></code>, <code><b>item</b></code> 이 있으며 <code><b>key</b></code> 은 밴드의 키값, <code><b>item</b></code>은
-불러와진 게시글들이 담겨져 있습니다.
+만약 특정 밴드의 다음 게시글 목록을 불러오고 싶다면 <br><code>require('band-api').nextPosts(callbackFunc, _bandIdxOrbandKey, _locale  =  'ko-KR')</code> 로 특정 밴드의 다음 게시글 목록을 불러올 수 있습니다.<br>
+마찬가지로 <code><b>callbackFunc</b></code> 파라미터는 밴드들의 게시글들을 불러오고 나서 호출되는 콜백함수 이며, <br>해당 콜백함수의 파타미터로는 <code><b>err</b></code>, <code><b>key</b></code>, <code><b>item</b></code> 이 있으며 <code><b>key</b></code> 은 밴드의 키값, <code><b>item</b></code>은
+불러와진 게시글들의 데이터가 담겨져 있습니다.
 
 <code><b>_bandIdxOrbandKey</b></code> 파라미터는 밴드 키값 또는  <code>require('band-api').app.bands</code> 배열의 인덱스를 넣으시면 됩니다. 만약, 서비스 할 밴드가 1개 뿐이라면 해당 파라미터 자리에 <code>0</code> 을 넣으시면 됩니다.
 
