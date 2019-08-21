@@ -2,7 +2,6 @@
 > 설명
 
 [네이버 밴드 OPEN API](https://developers.band.us/develop/guide/api) 를 사용하여 밴드 OPEN API 를 더 간편하게 사용할 수 있도록 만들었습니다. 
-(NPM 등록 X)
 
 <blockquote>사용</blockquote>
 
