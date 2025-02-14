@@ -1,0 +1,64 @@
+name: Band Auto Posting
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'  # 3시간마다 실행
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+        
+    - name: Install Shadowsocks
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shadowsocks-libev
+        echo '{
+          "server":"34.64.189.76",
+          "server_port":16978,
+          "local_address": "127.0.0.1",
+          "local_port":1080,
+          "password":"Nsy5l8wxxzHg4CXPKwEw6S",
+          "timeout":300,
+          "method":"chacha20-ietf-poly1305"
+        }' > config.json
+        # Start Shadowsocks in background
+        ss-local -c config.json -v &
+        # Wait for proxy to start
+        sleep 5
+        
+    - name: Install Chrome and dependencies
+      run: |
+        sudo apt-get install -y chromium-browser proxychains
+        # Configure proxychains to use Shadowsocks
+        sudo bash -c 'echo "
+        strict_chain
+        proxy_dns
+        [ProxyList]
+        socks5 127.0.0.1 1080
+        " > /etc/proxychains.conf'
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install selenium webdriver_manager requests[socks] beautifulsoup4
+        
+    - name: Download Chrome Profile
+      run: |
+        mkdir -p chrome_profile_qqqq071026242
+        echo "${{ secrets.CHROME_PROFILE }}" | base64 -d > chrome_profile.tar.gz
+        tar xzf chrome_profile.tar.gz -C chrome_profile_qqqq071026242
+        
+    - name: Run posting script with proxy
+      env:
+        URLS_JSON: ${{ secrets.URLS_JSON }}
+      run: |
+        proxychains python band_cli.py
