@@ -14,32 +14,21 @@ def get_chrome_options():
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     
-    # 크롬 프로필 경로 설정
+    # 크롬 프로필 경로 설정 - 저장소에 있는 프로필 사용
     profile_path = os.path.join(os.getcwd(), 'chrome_profile_qqqq071026242')
+    print(f"프로필 경로: {profile_path}")
     options.add_argument(f'--user-data-dir={profile_path}')
     options.add_argument('--profile-directory=Default')
     
-    # User Agent 설정
-    user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/92.0.4515.131 Safari/537.36'
-    ]
-    options.add_argument(f'user-agent={random.choice(user_agents)}')
-    
-    # 프록시 설정 추가
-    options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-    
-    # 한국어 설정
+    # 한국어 및 위치 설정
     options.add_argument('--lang=ko_KR')
-    
-    # 위치 정보 설정 (한국)
     options.add_argument('--geolocation=37.5665,126.9780')  # 서울 좌표
     
-    prefs = {
-        'intl.accept_languages': 'ko-KR,ko',
-        'profile.managed_default_content_settings.images': 1,
-    }
-    options.add_experimental_option('prefs', prefs)
+    # VPN 프록시 설정
+    options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
+    
+    # User Agent 설정
+    options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36')
     
     return options
 
@@ -59,29 +48,61 @@ def post_to_bands():
         log_step("❌ URL 설정을 찾을 수 없음")
         return
         
-    log_step("🚀 Chrome 드라이버 초기화")
+    print("::group::Chrome 초기화")
     driver = webdriver.Chrome(options=get_chrome_options())
-    url_index = 1
+    print("Chrome 드라이버 생성 완료")
+    print("::endgroup::")
     
     try:
-        # 밴드 메인 페이지로 이동
-        log_step("🌐 밴드 메인 페이지 로딩 중")
+        print("::group::밴드 페이지 로딩")
         driver.get('https://band.us/feed')
         time.sleep(5)
-        log_end()
+        print(f"현재 URL: {driver.current_url}")
         
-        # 자동 로그인 대기
-        log_step("🔑 자동 로그인 확인 중")
+        # 자동 로그인 상태 확인 및 필요시 로그인
         try:
-            WebDriverWait(driver, 10).until(
+            # 프로필 이미지로 로그인 상태 확인
+            WebDriverWait(driver, 5).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, '.profileImage'))
             )
-            print("✅ 자동 로그인 성공")
+            print("✅ 이미 로그인된 상태")
         except:
-            print("⚠️ 자동 로그인 실패 - 수동 로그인 필요할 수 있음")
-        log_end()
+            print("로그인 필요, 로그인 페이지로 이동...")
+            driver.get('https://auth.band.us/login')
+            time.sleep(3)
+            
+            # 이메일 로그인 버튼 클릭
+            email_login_btn = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uButtonRound.-h56.-icoType.-email'))
+            )
+            print("이메일 로그인 버튼 클릭")
+            email_login_btn.click()
+            time.sleep(2)
+            
+            # 여기서 이메일/비밀번호는 크롬 프로필에서 자동 입력됨
+            print("자동 입력 대기 중...")
+            time.sleep(5)
+            
+            # 로그인 버튼 클릭
+            login_btn = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+            )
+            print("로그인 버튼 클릭")
+            login_btn.click()
+            time.sleep(5)
+            
+            # 로그인 성공 확인
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '.profileImage'))
+                )
+                print("✅ 로그인 성공")
+            except:
+                print("❌ 로그인 실패")
+                raise Exception("로그인에 실패했습니다")
+            
+        print("::endgroup::")
         
-        # 밴드 목록 가져오기
         log_step("📋 밴드 목록 로딩 중")
         for i in range(3):
             print(f"스크롤 다운 {i+1}/3...")
