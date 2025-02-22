@@ -47,38 +47,73 @@ class BandAutoAction:
             raise
 
     def setup_driver(self):
-        """Chrome 드라이버 설정"""
         try:
             options = Options()
             
             # GitHub Actions 환경인 경우
             if os.getenv('GITHUB_ACTIONS'):
-                options.add_argument('--headless=new')
+                options.add_argument('--user-data-dir=./chrome-profile')
+                options.add_argument('--profile-directory=Default')
                 options.add_argument('--no-sandbox')
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')  # VPN 프록시 설정
-                chrome_profile_path = os.getenv('CHROME_PROFILE_PATH', './chrome-profile')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                options.add_argument('--disable-web-security')  # CORS 비활성화
+                options.add_argument('--allow-running-insecure-content')  # 보안 컨텐츠 허용
+                options.add_argument('--disable-features=IsolateOrigins,site-per-process')  # 프로세스 격리 비활성화
+                
+                # 쿠키/캐시 보존 설정
+                options.add_argument('--password-store=basic')
+                options.add_argument('--enable-features=NetworkService,NetworkServiceInProcess')
+                
+                # 프록시 설정
+                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
+                
+                # User Agent 설정
+                options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36')
+                
+                # 실험적 기능 및 자동화 감지 방지
+                options.add_experimental_option('excludeSwitches', ['enable-automation'])
+                options.add_experimental_option('useAutomationExtension', False)
+                
+                # 프로필 관련 기본 설정 유지
+                prefs = {
+                    'profile.default_content_settings.popups': 0,
+                    'credentials_enable_service': True,
+                    'profile.password_manager_enabled': True,
+                    'profile.default_content_setting_values.notifications': 2
+                }
+                options.add_experimental_option('prefs', prefs)
             else:
-                # 로컬 환경
+                # 로컬 환경 설정
                 chrome_profile_path = os.path.join(self.script_dir, 'chrome-profile')
-            
-            # 프로필 경로 설정
-            options.add_argument(f'--user-data-dir={chrome_profile_path}')
-            options.add_argument('--profile-directory=Default')
-            
-            # 기본 옵션 설정
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_experimental_option('excludeSwitches', ['enable-automation'])
-            options.add_experimental_option('useAutomationExtension', False)
+                options.add_argument(f'--user-data-dir={chrome_profile_path}')
+                options.add_argument('--profile-directory=Default')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                options.add_experimental_option('excludeSwitches', ['enable-automation'])
+                options.add_experimental_option('useAutomationExtension', False)
             
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
+            # 자동화 감지 방지 스크립트 주입
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': '''
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5]
+                    });
+                '''
+            })
+            
             print("Chrome driver initialized")
+            return True
             
         except Exception as e:
             print(f"Driver setup failed: {str(e)}")
-            raise
+            return False
 
     def login(self):
         try:

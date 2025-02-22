@@ -48,27 +48,43 @@ jobs:
     - name: Extract Chrome Profile
       run: |
         echo "Chrome 프로필 압축 해제 중..."
-        mkdir -p chrome-profile
+        mkdir -p chrome-profile/Default
+        
+        # 압축 해제 시 기존 구조 유지
         unzip -o "chrome_profile.zip" -d ./chrome-profile || {
           echo "chrome_profile.zip 파일을 찾을 수 없습니다."
-          echo "현재 폴더 내용:"
           ls -la
           exit 1
         }
-        echo "Chrome 프로필 압축 해제 완료"
+        
+        # 권한 설정
+        chmod -R 777 ./chrome-profile
+        
+        # 프로필 구조 확인
+        echo "프로필 구조 확인:"
+        ls -la ./chrome-profile/Default/
+        
+        # 쿠키 파일 존재 확인
+        if [ -f "./chrome-profile/Default/Cookies" ]; then
+          echo "쿠키 파일 존재 확인됨"
+        else
+          echo "경고: 쿠키 파일이 없습니다"
+        fi
         
     - name: Run Auto Posting
       run: |
         # Chrome 옵션 환경변수 설정
         export CHROME_OPTIONS="
-          --user-data-dir=./chrome_profile
+          --user-data-dir=$(pwd)/chrome-profile
+          --profile-directory=Default
           --no-sandbox
           --disable-dev-shm-usage
           --disable-blink-features=AutomationControlled
-          --start-maximized
-          --disable-extensions
-          --disable-default-apps
-          --no-first-run
+          --disable-web-security
+          --allow-running-insecure-content
+          --disable-features=IsolateOrigins,site-per-process
+          --password-store=basic
+          --enable-features=NetworkService,NetworkServiceInProcess
           --user-agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36'
         "
         
