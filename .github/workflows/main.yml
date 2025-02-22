@@ -62,43 +62,40 @@ jobs:
         
     - name: Setup Chrome Profile
       run: |
-        # 작업 디렉토리 생성
-        CHROME_PROFILE_DIR="chrome-profile"
-        mkdir -p "$CHROME_PROFILE_DIR"
+        WORK_DIR="$(pwd)/chrome-profile"
+        echo "프로필 디렉토리 준비 중: $WORK_DIR"
         
-        if [ -f "chrome_profile.zip" ]; then
-          echo "기존 프로필 압축 파일 발견, 사용 중..."
-        else
-          echo "GitHub에서 프로필 다운로드 중..."
-          wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
-          if [ ! -f "chrome_profile.zip" ]; then
-            echo "프로필 다운로드 실패"
-            exit 1
-          fi
+        # 기존 디렉토리 정리
+        rm -rf "$WORK_DIR"
+        mkdir -p "$WORK_DIR/Default"
+        
+        # 프로필 다운로드 및 압축 해제
+        echo "Chrome 프로필 다운로드 중..."
+        wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
+        
+        if [ ! -f "chrome_profile.zip" ]; then
+          echo "프로필 다운로드 실패"
+          exit 1
         fi
         
-        echo "프로필 압축 해제 중... ($CHROME_PROFILE_DIR)"
-        unzip -o chrome_profile.zip -d "$CHROME_PROFILE_DIR/"
+        echo "프로필 압축 해제 중..."
+        unzip -o chrome_profile.zip -d "$WORK_DIR"
         
-        echo "권한 및 소유권 설정..."
-        sudo chown -R runner:docker "$CHROME_PROFILE_DIR"
-        chmod -R 755 "$CHROME_PROFILE_DIR"
+        # 권한 설정
+        sudo chown -R root:root "$WORK_DIR"
+        find "$WORK_DIR" -type d -exec chmod 755 {} \;
+        find "$WORK_DIR" -type f -exec chmod 644 {} \;
         
-        # Cookies와 Login Data 파일 권한 특별 설정
-        for file in "$CHROME_PROFILE_DIR/Default/Cookies" "$CHROME_PROFILE_DIR/Default/Login Data"; do
-          if [ -f "$file" ]; then
-            chmod 644 "$file"
-            echo "권한 설정 완료: $file"
-          fi
-        done
+        # 잠금 파일 제거
+        find "$WORK_DIR" -name "*.ldb" -delete
+        find "$WORK_DIR" -name "*.log" -delete
+        find "$WORK_DIR" -name "*.lock" -delete
+        find "$WORK_DIR" -name "LOCK" -delete
         
-        # 프로필 디렉토리 상태 확인
         echo "프로필 설정 완료:"
-        ls -la "$CHROME_PROFILE_DIR/Default/"
+        ls -la "$WORK_DIR/Default/"
         
-        # 환경 변수 설정
-        PROFILE_PATH=$(realpath "$CHROME_PROFILE_DIR")
-        echo "CHROME_PROFILE_DIR=$PROFILE_PATH" >> $GITHUB_ENV
+        echo "CHROME_PROFILE_DIR=$WORK_DIR" >> $GITHUB_ENV
 
     - name: Clean and Setup Chrome Profile
       run: |
@@ -152,6 +149,14 @@ jobs:
         ls -la
 
     - name: Run Auto Posting
+      env:
+        CHROME_PROFILE_PATH: ${CHROME_PROFILE_DIR}
+        XDG_CONFIG_HOME: ${CHROME_PROFILE_DIR}
+        DISPLAY: :99
+        ALL_PROXY: "socks5://127.0.0.1:1080"
+        CHROME_REMOTE_DEBUGGING_PORT: "9222"
+        PYTHONUNBUFFERED: 1
+        TZ: "Asia/Seoul"
       run: |
         export CHROME_OPTIONS="
           --user-data-dir=${CHROME_PROFILE_DIR}
@@ -366,11 +371,3 @@ jobs:
           
         } | tee execution_summary.txt
 
-      env:
-        CHROME_PROFILE_PATH: ${CHROME_PROFILE_DIR}
-        XDG_CONFIG_HOME: ${CHROME_PROFILE_DIR}  # Chrome 설정 디렉토리
-        DISPLAY: :99  # 가상 디스플레이
-        ALL_PROXY: "socks5://127.0.0.1:1080"
-        CHROME_REMOTE_DEBUGGING_PORT: "9222"  # 원격 디버깅 포트 추가
-        PYTHONUNBUFFERED: 1
-        TZ: 'Asia/Seoul'
