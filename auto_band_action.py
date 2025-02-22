@@ -454,31 +454,52 @@ class BandAutoAction:
             time.sleep(3)
             
             # 에디터 찾기
+            print("에디터 찾는 중...")
             editor = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
             )
             
             # URL 입력
-            print("URL 입력 중...")
+            print(f"URL 입력 시작: {post_url}")
             editor.send_keys(post_url)
+            print("URL 입력 완료")
             time.sleep(1)
             
             # 미리보기 로딩 대기
-            print("미리보기 로딩 대기 중...")
+            print("미리보기 로딩 대기 시작...")
             time.sleep(5)  # 5초 대기
+            print("미리보기 로딩 완료")
             
             # URL 텍스트 삭제
-            editor.clear()
+            try:
+                print("URL 텍스트 삭제 시작")
+                editor.clear()
+                time.sleep(1)
+                print("URL 텍스트 삭제 완료")
+            except Exception as e:
+                print(f"URL 텍스트 삭제 중 오류: {str(e)}")
+                return False
             
-            # 게시 버튼 클릭
-            submit_btn = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-            )
-            submit_btn.click()
-            time.sleep(3)
-            
-            print(f"'{band_info['name']}' 밴드에 포스팅 완료")
-            return True
+            # 게시 버튼 찾기
+            try:
+                print("게시 버튼 찾는 중...")
+                submit_btn = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                )
+                print("게시 버튼 발견")
+                
+                # 게시 버튼 클릭
+                print("게시 버튼 클릭")
+                submit_btn.click()
+                time.sleep(3)
+                print("게시 완료")
+                
+                print(f"'{band_info['name']}' 밴드에 포스팅 성공")
+                return True
+                
+            except Exception as e:
+                print(f"게시 버튼 클릭 실패: {str(e)}")
+                return False
             
         except Exception as e:
             print(f"포스팅 실패: {str(e)}")
@@ -592,5 +613,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
