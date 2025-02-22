@@ -41,12 +41,12 @@ jobs:
 
     - name: Install Chrome and ChromeDriver
       run: |
-        # 최신 Chrome 설치
+        # Chrome 설치 및 버전 확인
         wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
         sudo apt install -y ./google-chrome-stable_current_amd64.deb
         rm -f google-chrome-stable_current_amd64.deb
         
-        # 설치된 Chrome 버전 확인
+        # 정확한 Chrome 버전 추출
         CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
         echo "설치된 Chrome 버전: $CHROME_VERSION"
         
@@ -54,32 +54,36 @@ jobs:
         CHROMEDRIVER_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"
         echo "ChromeDriver 다운로드 중: $CHROMEDRIVER_URL"
         
-        # 기존 ChromeDriver 제거
-        sudo rm -f /usr/local/bin/chromedriver
-        
-        # ChromeDriver 다운로드 및 설치
-        wget -q "$CHROMEDRIVER_URL" -O chromedriver.zip || {
-          echo "ChromeDriver 다운로드 실패. 대체 URL 시도..."
+        # ChromeDriver 다운로드 시도
+        if ! wget -q "$CHROMEDRIVER_URL" -O chromedriver.zip; then
+          echo "첫 번째 URL 실패, 대체 URL 시도..."
           CHROMEDRIVER_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"
-          wget -q "$CHROMEDRIVER_URL" -O chromedriver.zip
-        }
+          wget -q "$CHROMEDRIVER_URL" -O chromedriver.zip || {
+            echo "ChromeDriver 다운로드 실패"
+            exit 1
+          }
+        fi
         
-        # 압축 해제 및 설치
-        unzip -o chromedriver.zip
+        # 기존 ChromeDriver 제거 및 새 버전 설치
+        sudo rm -f /usr/local/bin/chromedriver
+        unzip -o chromedriver.zip || {
+          echo "ChromeDriver 압축 해제 실패"
+          exit 1
+        }
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
         rm -rf chromedriver.zip chromedriver-linux64
         
-        # 버전 확인
-        echo "설치된 버전:"
+        # 버전 확인 및 검증
+        echo "설치된 버전 정보:"
         chrome_version=$(google-chrome --version)
-        driver_version=$(chromedriver --version)
+        chromedriver_version=$(chromedriver --version)
         echo "Chrome: $chrome_version"
-        echo "ChromeDriver: $driver_version"
-        
+        echo "ChromeDriver: $chromedriver_version"
+
         # 버전 매칭 확인
         chrome_major=$(echo "$chrome_version" | awk '{print $3}' | cut -d. -f1)
-        driver_major=$(echo "$driver_version" | awk '{print $2}' | cut -d. -f1)
+        driver_major=$(echo "$chromedriver_version" | awk '{print $2}' | cut -d. -f1)
         if [ "$chrome_major" != "$driver_major" ]; then
           echo "버전 불일치: Chrome ($chrome_major) != ChromeDriver ($driver_major)"
           exit 1
