@@ -283,9 +283,10 @@ class BandAutoAction:
             login_btn.click()
             
             # 즉시 URL 체크 및 로깅
-            time.sleep(2)  # 짧은 대기 후 URL 확인
-            current_url = self.driver.current_url
-            print(f"\n로그인 버튼 클릭 직후 URL: {current_url}")
+            for i in range(5):  # 5번 URL 체크 (1초 간격)
+                current_url = self.driver.current_url
+                print(f"로그인 후 URL 체크 #{i+1}: {current_url}")
+                time.sleep(1)
             
             # validation_welcome 페이지 체크
             if 'validation_welcome' in current_url:
@@ -319,51 +320,49 @@ class BandAutoAction:
     def get_band_list(self):
         """밴드 목록 가져오기"""
         try:
-            print("============== 밴드 목록 수집 시작 ==============")
-            print("1. 피드 페이지 로딩 중...")
+            print("\n============== 밴드 목록 수집 시작 ==============")
+            print("1. 피드 페이지 이동 시도...")
             self.driver.get('https://band.us/feed')
-            time.sleep(5)
+            time.sleep(3)
+            print(f"현재 URL: {self.driver.current_url}")
             
-            print("2. 페이지 초기 로딩 완료")
-            print("3. '내 밴드 더보기' 버튼 찾는 중...")
+            print("\n2. 피드 페이지 로딩 대기...")
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
+            )
+            print("피드 페이지 로딩 완료")
             
-            try:
-                # 스크롤 시도 횟수 표시
-                for scroll_attempt in range(1, 4):
-                    print(f"   스크롤 시도 {scroll_attempt}/3...")
-                    try:
-                        more_btn = WebDriverWait(self.driver, 5).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                        )
-                        self.driver.execute_script("arguments[0].scrollIntoView(true);", more_btn)
-                        time.sleep(2)
-                        print("   '더보기' 버튼 발견, 클릭 시도...")
-                        more_btn.click()
-                        print("   '더보기' 버튼 클릭 성공")
-                        time.sleep(3)
-                        break
-                    except:
-                        print(f"   {scroll_attempt}번째 스크롤 - 버튼 찾기 실패")
-                        self.driver.execute_script("window.scrollBy(0, 300);")
-                        time.sleep(1)
-            except Exception as e:
-                print(f"더보기 버튼 처리 중 오류 (무시됨): {str(e)}")
+            print("\n3. '내 밴드 더보기' 버튼 찾는 중...")
+            for scroll_attempt in range(1, 4):
+                try:
+                    more_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                    )
+                    print(f"더보기 버튼 발견 (시도 {scroll_attempt}/3)")
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", more_btn)
+                    time.sleep(2)
+                    more_btn.click()
+                    print("더보기 버튼 클릭 성공")
+                    time.sleep(3)
+                    break
+                except:
+                    print(f"스크롤 시도 {scroll_attempt}/3 - 버튼 못찾음")
+                    self.driver.execute_script("window.scrollBy(0, 300);")
+                    time.sleep(1)
             
-            print("4. 밴드 목록 요소 찾는 중...")
+            print("\n4. 밴드 목록 요소 찾는 중...")
             band_list = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[data-viewname="DMyGroupBandBannerView.MyGroupBandListView"]'))
             )
-            print("   밴드 목록 요소 찾기 성공")
+            print("밴드 목록 컨테이너 발견")
             
-            print("5. 개별 밴드 정보 수집 중...")
+            print("\n5. 개별 밴드 정보 수집...")
             band_items = band_list.find_elements(By.CSS_SELECTOR, 'li[data-viewname="DMyGroupBandListItemView"]')
-            print(f"   총 {len(band_items)}개의 밴드 항목 발견")
+            total_bands = len(band_items)
+            print(f"총 {total_bands}개의 밴드 항목 발견")
             
             bands = []
-            success_count = 0
-            failed_count = 0
-            
-            for index, item in enumerate(band_items, 1):
+            for idx, item in enumerate(band_items, 1):
                 try:
                     band_link = item.find_element(By.CSS_SELECTOR, 'a.itemMyBand')
                     band_name = item.find_element(By.CSS_SELECTOR, 'span.body strong.ellipsis').text.strip()
@@ -374,34 +373,23 @@ class BandAutoAction:
                             'name': band_name,
                             'url': band_url
                         })
-                        success_count += 1
-                        print(f"   [{index}/{len(band_items)}] 성공: {band_name}")
+                        print(f"밴드 정보 추출 성공 [{idx}/{total_bands}]: {band_name}")
                 except Exception as e:
-                    failed_count += 1
-                    print(f"   [{index}/{len(band_items)}] 실패: {str(e)}")
-                    continue
+                    print(f"밴드 정보 추출 실패 [{idx}/{total_bands}]: {str(e)}")
             
-            print("\n6. 밴드 정렬 중...")
+            print("\n6. URL 기준 정렬 중...")
             bands.sort(key=lambda x: int(x['url'].split('/')[-1]), reverse=True)
-            print("   정렬 완료")
+            print("정렬 완료")
             
-            print("\n7. 수집된 정보 저장 중...")
-            with open(self.bands_file, 'w', encoding='utf-8') as f:
-                json.dump(bands, f, ensure_ascii=False, indent=4)
-            
-            print("\n============== 밴드 목록 수집 결과 ==============")
-            print(f"총 발견된 밴드: {len(band_items)}개")
-            print(f"성공적으로 수집: {success_count}개")
-            print(f"수집 실패: {failed_count}개")
-            print(f"저장된 파일 위치: {self.bands_file}")
-            print("===============================================")
+            if bands:
+                print("\n수집 결과:")
+                print(f"- 첫 번째 밴드: {bands[0]['name']} ({bands[0]['url']})")
+                print(f"- 마지막 밴드: {bands[-1]['name']} ({bands[-1]['url']})")
             
             return bands
             
         except Exception as e:
-            print("\n============== 오류 발생 ==============")
-            print(f"밴드 목록 수집 실패: {str(e)}")
-            print("======================================")
+            print(f"\n밴드 목록 수집 실패: {str(e)}")
             raise
 
     def post_to_band(self, band_info, post_url, url_number):
