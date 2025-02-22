@@ -171,9 +171,9 @@ jobs:
           --disable-dev-shm-usage \
           about:blank
 
-    - name: Setup Chrome Profile
+    - name: Check and Setup Required Directories
       run: |
-        # 프로필 디렉토리 설정
+        # 프로필 디렉토리 확인
         PROFILE_DIR="${CHROME_PROFILE_DIR}"
         echo "프로필 디렉토리: $PROFILE_DIR"
         
@@ -188,42 +188,6 @@ jobs:
         done
         
         # 프로필 구조 확인
-        echo "프로필 구조 확인:"
-        ls -la "$PROFILE_DIR/Default/"
-
-    - name: Setup Chrome Profile
-      run: |
-        # 프로필 디렉토리 설정
-        PROFILE_DIR="/tmp/chrome-profile-$GITHUB_RUN_ID"
-        echo "프로필 디렉토리: $PROFILE_DIR"
-        
-        # 기존 프로필 완전 제거
-        sudo rm -rf "$PROFILE_DIR"
-        mkdir -p "$PROFILE_DIR/Default"
-        
-        # GitHub에서 프로필 다운로드
-        echo "프로필 다운로드 중..."
-        wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
-        
-        if [ ! -f "chrome_profile.zip" ]; then
-          echo "프로필 다운로드 실패"
-          exit 1
-        fi
-        
-        # 프로필 압축 해제
-        unzip -o chrome_profile.zip -d "$PROFILE_DIR"
-        
-        # 권한 설정
-        sudo chown -R $USER:$USER "$PROFILE_DIR"
-        chmod -R 755 "$PROFILE_DIR"
-        
-        # 캐시 디렉토리 초기화
-        rm -rf "$PROFILE_DIR/Default/Cache"/*
-        mkdir -p "$PROFILE_DIR/Default/Cache"
-        
-        echo "CHROME_PROFILE_DIR=$PROFILE_DIR" >> $GITHUB_ENV
-        
-        # 프로필 설정 확인
         echo "프로필 구조 확인:"
         ls -la "$PROFILE_DIR/Default/"
 
