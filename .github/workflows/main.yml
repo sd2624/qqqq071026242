@@ -61,76 +61,74 @@ jobs:
       run: |
         echo "=== 밴드 자동 포스팅 시작 ==="
         
-        echo "1. VPN 상태 확인"
-        IP_INFO=$(curl --socks5 127.0.0.1:1080 http://ip-api.com/json)
-        echo "현재 IP 정보:"
-        echo "$IP_INFO" | python3 -m json.tool
-        
-        echo -e "\n2. 로그인 프로세스 시작"
-        python3 - <<EOF
-        import json, time, datetime
-        def log(msg):
-            now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"[{now}] {msg}")
-            
-        with open('config.json', 'r') as f:
-            config = json.load(f)
-        
-        log("=== 로그인 정보 ===")
-        log(f"이메일: {config['email']}")
-        log(f"비밀번호: {'*' * len(config['password'])}")
-        EOF
-        
-        echo -e "\n3. 자동화 실행 로그"
+        # 실시간 모니터링 스크립트
+        PYTHONUNBUFFERED=1 python auto_band_action.py 2>&1 | while IFS= read -r line; do
+          timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+          
+          # 단계별 진행 상황 강조
+          case "$line" in
+            *"로그인 페이지"*|*"이메일 입력"*|*"비밀번호 입력"*)
+              echo "========== 로그인 프로세스 =========="
+              echo "[$timestamp] $line"
+              echo "===================================="
+              ;;
+              
+            *"현재 URL"*|*"이동 중"*|*"페이지 로딩"*)
+              echo "============= URL 이동 =============="
+              echo "[$timestamp] $line"
+              echo "현재 페이지: $line"
+              echo "===================================="
+              ;;
+              
+            *"밴드 목록"*|*"밴드 발견"*|*"총 밴드"*)
+              echo "=========== 밴드 목록 수집 =========="
+              echo "[$timestamp] $line"
+              echo "===================================="
+              ;;
+              
+            *"글쓰기"*|*"URL 입력"*|*"포스팅"*|*"미리보기"*)
+              echo "=========== 포스팅 작업 ============"
+              echo "[$timestamp] $line"
+              echo "===================================="
+              ;;
+              
+            *"성공"*|*"완료"*|*"실패"*|*"오류"*)
+              echo "============= 작업 결과 ============="
+              echo "[$timestamp] $line"
+              echo "===================================="
+              ;;
+              
+            *)
+              echo "[$timestamp] $line"
+              ;;
+          esac
+        done
+
+        echo -e "\n=== 실행 결과 요약 ==="
         {
-          PYTHONUNBUFFERED=1 python auto_band_action.py 2>&1 | while IFS= read -r line; do
-            timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-            
-            # URL 패턴 강조
-            if [[ $line == *"http"* ]]; then
-              echo "============ 페이지 이동 ============"
-              echo "[$timestamp] $line"
-              echo "===================================="
-              
-            # 로그인 단계 강조
-            elif [[ $line == *"로그인"* ]] || [[ $line == *"이메일"* ]] || [[ $line == *"비밀번호"* ]]; then
-              echo "============ 로그인 단계 ============"
-              echo "[$timestamp] $line"
-              echo "===================================="
-              
-            # 밴드 이동 강조
-            elif [[ $line == *"밴드 이동"* ]] || [[ $line == *"밴드:"* ]]; then
-              echo "============ 밴드 작업 ============="
-              echo "[$timestamp] $line"
-              echo "===================================="
-              
-            # 포스팅 작업 강조
-            elif [[ $line == *"포스팅"* ]] || [[ $line == *"게시"* ]]; then
-              echo "============ 포스팅 작업 ==========="
-              echo "[$timestamp] $line"
-              echo "===================================="
-              
-            # 일반 로그
-            else
-              echo "[$timestamp] $line"
-            fi
-          done
+          echo "1. 로그인 단계"
+          grep -A 2 "로그인 프로세스" band_auto.log || echo "로그인 기록 없음"
           
-          # 실행 결과 저장
-          echo -e "\n=== 실행 통계 ==="
-          echo "성공한 포스팅: $(grep -c "포스팅 완료" band_auto.log)"
-          echo "실패한 시도: $(grep -c "실패" band_auto.log)"
-          echo "총 페이지 이동: $(grep -c "http" band_auto.log)"
+          echo -e "\n2. 밴드 목록 수집"
+          grep -A 2 "밴드 목록 수집" band_auto.log || echo "밴드 목록 기록 없음"
           
-          # 마지막 상태 표시
-          echo -e "\n=== 마지막 작업 상태 ==="
-          tail -n 20 band_auto.log
-        }
-        
-        echo -e "\n=== 주요 접속 기록 ==="
-        grep -E "http|페이지 이동|현재 URL" band_auto.log || echo "접속 기록 없음"
+          echo -e "\n3. URL 이동 기록"
+          grep "현재 페이지:" band_auto.log || echo "URL 이동 기록 없음"
+          
+          echo -e "\n4. 포스팅 작업"
+          grep -A 1 "포스팅 작업" band_auto.log || echo "포스팅 기록 없음"
+          
+          echo -e "\n5. 작업 결과"
+          echo "성공: $(grep -c "포스팅 완료" band_auto.log)회"
+          echo "실패: $(grep -c "실패" band_auto.log)회"
+          echo "URL 이동: $(grep -c "현재 페이지:" band_auto.log)회"
+          
+          echo -e "\n=== 마지막 상태 ==="
+          tail -n 10 band_auto.log
+        } | tee execution_summary.txt
+
       env:
         CHROME_PROFILE_PATH: "./chrome-profile"
         ALL_PROXY: "socks5://127.0.0.1:1080"
         PYTHONUNBUFFERED: 1
-        TZ: 'Asia/Seoul'  # 한국 시간으로 설정
+        TZ: 'Asia/Seoul'
