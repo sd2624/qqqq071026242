@@ -60,45 +60,49 @@ jobs:
         fi
         echo "Found chrome_profile.zip"
         
+    - name: Clean Chrome Processes
+      run: |
+        # 기존 Chrome 프로세스 강제 종료
+        echo "기존 Chrome 프로세스 정리 중..."
+        pgrep -x "chrome" && pkill -9 "chrome"
+        pgrep -x "chromedriver" && pkill -9 "chromedriver"
+        sleep 2
+
     - name: Setup Chrome Profile
       run: |
-        # 작업 디렉토리 설정 (절대 경로 사용)
-        WORK_DIR="${GITHUB_WORKSPACE}/chrome-profile"
-        echo "프로필 디렉토리: $WORK_DIR"
+        # 프로필 디렉토리 설정
+        PROFILE_DIR="/tmp/chrome-profile-$GITHUB_RUN_ID"
+        echo "프로필 디렉토리: $PROFILE_DIR"
         
-        # 기존 디렉토리 정리
-        sudo rm -rf "$WORK_DIR"
-        mkdir -p "$WORK_DIR/Default"
+        # 기존 프로필 완전 제거
+        sudo rm -rf "$PROFILE_DIR"
+        mkdir -p "$PROFILE_DIR/Default"
         
-        # 압축 파일 위치 확인
-        if [ -f "chrome_profile.zip" ]; then
-          echo "프로필 압축 파일 발견"
-          unzip -o chrome_profile.zip -d "$WORK_DIR"
-        else
-          echo "프로필 다운로드 시도"
-          wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
-          if [ ! -f "chrome_profile.zip" ]; then
-            echo "프로필 다운로드 실패"
-            exit 1
-          fi
-          unzip -o chrome_profile.zip -d "$WORK_DIR"
+        # GitHub에서 프로필 다운로드
+        echo "프로필 다운로드 중..."
+        wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
+        
+        if [ ! -f "chrome_profile.zip" ]; then
+          echo "프로필 다운로드 실패"
+          exit 1
         fi
         
+        # 프로필 압축 해제
+        unzip -o chrome_profile.zip -d "$PROFILE_DIR"
+        
         # 권한 설정
-        sudo chown -R $USER:$USER "$WORK_DIR"
-        find "$WORK_DIR" -type d -exec chmod 755 {} \;
-        find "$WORK_DIR" -type f -exec chmod 644 {} \;
+        sudo chown -R $USER:$USER "$PROFILE_DIR"
+        chmod -R 755 "$PROFILE_DIR"
         
-        # 필수 디렉토리 생성
-        for dir in "Cache" "Local Storage" "Session Storage" "Network"; do
-          mkdir -p "$WORK_DIR/Default/$dir"
-        done
+        # 캐시 디렉토리 초기화
+        rm -rf "$PROFILE_DIR/Default/Cache"/*
+        mkdir -p "$PROFILE_DIR/Default/Cache"
         
-        echo "프로필 구조:"
-        ls -la "$WORK_DIR/Default/"
+        echo "CHROME_PROFILE_DIR=$PROFILE_DIR" >> $GITHUB_ENV
         
-        # 환경 변수 설정
-        echo "CHROME_PROFILE_DIR=$WORK_DIR" >> $GITHUB_ENV
+        # 프로필 설정 확인
+        echo "프로필 구조 확인:"
+        ls -la "$PROFILE_DIR/Default/"
 
     - name: Check Directory Structure
       run: |
