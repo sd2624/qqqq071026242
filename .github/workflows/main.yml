@@ -39,151 +39,44 @@ jobs:
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
-    - name: Install Latest Chrome and ChromeDriver
+    - name: Install Chrome and ChromeDriver
       run: |
-        # 안정버전 Chrome 설치
-        echo "최신 안정 버전 Chrome 설치 중..."
-        wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-        sudo apt install -y ./google-chrome-stable_current_amd64.deb
-        rm -f google-chrome-stable_current_amd64.deb
+        # 최신 안정버전 Chrome 설치
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
         
-        # 설치된 Chrome 버전 확인
-        chrome_version=$(google-chrome --version | awk '{print $3}')
-        echo "설치된 Chrome 버전: $chrome_version"
+        # Chrome 버전 확인
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
+        CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION" | cut -d. -f1)
+        echo "설치된 Chrome 버전: $CHROME_VERSION"
         
-        # Chrome 메이저 버전 추출
-        chrome_major=$(echo "$chrome_version" | cut -d. -f1)
-        echo "Chrome 메이저 버전: $chrome_major"
-        
-        # Chrome for Testing API로 ChromeDriver 정보 조회
-        json_url="https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json"
-        echo "ChromeDriver 정보 조회 중..."
-        
-        # jq로 호환되는 최신 ChromeDriver URL 찾기
-        driver_url=$(curl -s "$json_url" | \
+        # Chrome for Testing API에서 매칭되는 ChromeDriver 찾기
+        API_URL="https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json"
+        MATCHING_DRIVER=$(curl -s "$API_URL" | \
           jq -r ".versions[] | 
-          select(.version | startswith(\"$chrome_major.\")) |
+          select(.version | startswith(\"$CHROME_MAJOR_VERSION.\")) |
           .downloads.chromedriver[] | 
           select(.platform==\"linux64\").url" | head -1)
         
-        if [ -z "$driver_url" ]; then
-          echo "호환되는 ChromeDriver를 찾을 수 없습니다"
+        if [ -z "$MATCHING_DRIVER" ]; then
+          echo "호환되는 ChromeDriver를 찾을 수 없습니다."
           exit 1
         fi
         
-        echo "ChromeDriver 다운로드 URL: $driver_url"
+        echo "다운로드할 ChromeDriver URL: $MATCHING_DRIVER"
         
         # ChromeDriver 다운로드 및 설치
-        wget -q "$driver_url" -O chromedriver.zip
-        sudo rm -f /usr/local/bin/chromedriver
+        wget -q "$MATCHING_DRIVER" -O chromedriver.zip
         unzip -o chromedriver.zip
         sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
         rm -rf chromedriver.zip chromedriver-linux64
-        
-        # 설치 확인
-        echo "=== 설치된 버전 정보 ==="
-        chrome_version=$(google-chrome --version)
-        driver_version=$(chromedriver --version)
-        echo "Chrome: $chrome_version"
-        echo "ChromeDriver: $driver_version"
-        
-        # 버전 매칭 검증
-        if ! echo "$driver_version" | grep -q "$chrome_major"; then
-          echo "버전 불일치 발견"
-          exit 1
-        fi
-        
-        echo "Chrome과 ChromeDriver 설치 완료"
-
-    - name: Install Specific Chrome Version
-      run: |
-        CHROME_VERSION="132.0.6263.0-1"
-        echo "Chrome $CHROME_VERSION 설치 중..."
-        wget -q "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb"
-        sudo apt-get install -y "./google-chrome-stable_${CHROME_VERSION}_amd64.deb"
-        rm "google-chrome-stable_${CHROME_VERSION}_amd64.deb"
         
         # 버전 확인
-        installed_version=$(google-chrome --version)
-        echo "설치된 Chrome 버전: $installed_version"
-
-    - name: Install Matching ChromeDriver
-      run: |
-        # Chrome 버전에서 정확한 버전 추출
-        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1-3)
-        echo "Chrome 버전: $CHROME_VERSION"
-        
-        # ChromeDriver 다운로드 URL 설정
-        CHROMEDRIVER_VERSION="132.0.6263.0"  # Chrome 버전과 정확히 일치
-        DOWNLOAD_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
-        
-        echo "ChromeDriver 다운로드 중... (버전: $CHROMEDRIVER_VERSION)"
-        wget -q "$DOWNLOAD_URL" -O chromedriver.zip
-        
-        # 기존 ChromeDriver 제거 및 새 버전 설치
-        sudo rm -f /usr/local/bin/chromedriver
-        unzip -o chromedriver.zip
-        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        rm -rf chromedriver.zip chromedriver-linux64
-        
-        # 설치 확인
-        echo "ChromeDriver 설치됨:"
-        chromedriver --version
-
-    - name: Check Chrome and Chromedriver Version
-      run: |
-        # Chrome 버전 확인 (오류 처리 추가)
-        if ! chrome_version=$(google-chrome --version 2>/dev/null); then
-          echo "Chrome 버전 확인 실패, 다른 방법 시도..."
-          chrome_version=$(google-chrome-stable --version 2>/dev/null || chromium-browser --version 2>/dev/null)
-        fi
-        
-        if [ -z "$chrome_version" ]; then
-          echo "Chrome 버전을 확인할 수 없습니다."
-          exit 1
-        fi
-        
-        echo "감지된 Chrome 버전: $chrome_version"
-        CHROME_VERSION=$(echo "$chrome_version" | awk '{print $NF}' | cut -d'.' -f1)
-        echo "추출된 메이저 버전: $CHROME_VERSION"
-
-    - name: Download and Install Correct ChromeDriver
-      run: |
-        # Chrome 버전 확인 및 정제
-        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1-3)
-        if [ -z "$CHROME_VERSION" ]; then
-          echo "Chrome 버전 확인 실패"
-          exit 1
-        fi
-        echo "감지된 Chrome 버전: $CHROME_VERSION"
-        
-        # ChromeDriver 버전 확인
-        LATEST_DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
-        if [ -z "$LATEST_DRIVER_VERSION" ]; then
-          echo "ChromeDriver 버전 확인 실패, 기본 최신 버전 사용"
-          LATEST_DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
-        fi
-        echo "설치할 ChromeDriver 버전: $LATEST_DRIVER_VERSION"
-        
-        # 기존 ChromeDriver 제거
-        sudo rm -f /usr/local/bin/chromedriver
-        sudo rm -f /usr/bin/chromedriver
-        
-        # ChromeDriver 다운로드 및 설치
-        echo "ChromeDriver 다운로드 중..."
-        wget -q "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER_VERSION/chromedriver_linux64.zip"
-        
-        # 압축 해제 및 설치
-        echo "ChromeDriver 설치 중..."
-        unzip -o chromedriver_linux64.zip
-        sudo mv chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-        rm chromedriver_linux64.zip
-        
-        # 설치 확인
-        echo "ChromeDriver 설치 완료"
+        echo "=== 설치된 버전 정보 ==="
+        google-chrome --version
         chromedriver --version
 
     - name: Download Chrome Profile
