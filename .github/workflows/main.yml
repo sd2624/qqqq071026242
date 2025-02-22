@@ -62,26 +62,43 @@ jobs:
         
     - name: Setup Chrome Profile
       run: |
-        # 작업 디렉토리 생성 및 이동
-        WORK_DIR="$(pwd)/chrome-profile"
-        mkdir -p "$WORK_DIR"
+        # 작업 디렉토리 생성
+        CHROME_PROFILE_DIR="chrome-profile"
+        mkdir -p "$CHROME_PROFILE_DIR"
         
-        echo "프로필 압축 해제 중... ($WORK_DIR)"
-        unzip -o chrome_profile.zip -d "$WORK_DIR"
+        if [ -f "chrome_profile.zip" ]; then
+          echo "기존 프로필 압축 파일 발견, 사용 중..."
+        else
+          echo "GitHub에서 프로필 다운로드 중..."
+          wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
+          if [ ! -f "chrome_profile.zip" ]; then
+            echo "프로필 다운로드 실패"
+            exit 1
+          fi
+        fi
         
-        # 권한 설정
-        sudo chown -R runner:docker "$WORK_DIR"
-        chmod -R 755 "$WORK_DIR"
+        echo "프로필 압축 해제 중... ($CHROME_PROFILE_DIR)"
+        unzip -o chrome_profile.zip -d "$CHROME_PROFILE_DIR/"
         
-        # 중요 파일 권한 설정
-        find "$WORK_DIR" -name "Cookies" -exec chmod 644 {} \;
-        find "$WORK_DIR" -name "Login Data" -exec chmod 644 {} \;
+        echo "권한 및 소유권 설정..."
+        sudo chown -R runner:docker "$CHROME_PROFILE_DIR"
+        chmod -R 755 "$CHROME_PROFILE_DIR"
         
+        # Cookies와 Login Data 파일 권한 특별 설정
+        for file in "$CHROME_PROFILE_DIR/Default/Cookies" "$CHROME_PROFILE_DIR/Default/Login Data"; do
+          if [ -f "$file" ]; then
+            chmod 644 "$file"
+            echo "권한 설정 완료: $file"
+          fi
+        done
+        
+        # 프로필 디렉토리 상태 확인
         echo "프로필 설정 완료:"
-        ls -la "$WORK_DIR/Default"
+        ls -la "$CHROME_PROFILE_DIR/Default/"
         
         # 환경 변수 설정
-        echo "CHROME_PROFILE_DIR=$WORK_DIR" >> $GITHUB_ENV
+        PROFILE_PATH=$(realpath "$CHROME_PROFILE_DIR")
+        echo "CHROME_PROFILE_DIR=$PROFILE_PATH" >> $GITHUB_ENV
 
     - name: Clean and Setup Chrome Profile
       run: |
@@ -107,7 +124,7 @@ jobs:
         fi
         
         # 권한 설정
-        sudo chown -R root:root .
+        sudo chown -R root:root . 
         find . -type d -exec chmod 755 {} \;
         find . -type f -exec chmod 644 {} \;
         
@@ -136,7 +153,6 @@ jobs:
 
     - name: Run Auto Posting
       run: |
-        # Chrome 옵션 설정
         export CHROME_OPTIONS="
           --user-data-dir=${CHROME_PROFILE_DIR}
           --profile-directory=Default
