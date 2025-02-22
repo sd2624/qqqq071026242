@@ -467,7 +467,7 @@ class BandAutoAction:
             
             # 미리보기 로딩 대기
             print("미리보기 로딩 대기 시작...")
-            time.sleep(5)  # 5초 대기
+            time.sleep(10)  # 10초로 증가
             print("미리보기 로딩 완료")
             
             # URL 텍스트 삭제 - 새로운 방식
@@ -477,54 +477,48 @@ class BandAutoAction:
                 editor = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
                 )
-                
-                # JavaScript로 텍스트 삭제
-                self.driver.execute_script("""
-                    var editor = arguments[0];
-                    editor.innerHTML = '';
-                    editor.dispatchEvent(new Event('input', { bubbles: true }));
-                """, editor)
-                
-                time.sleep(1)
+                editor.clear()
                 print("URL 텍스트 삭제 완료")
+                time.sleep(2)  # 대기 시간 추가
             except Exception as e:
                 print(f"URL 텍스트 삭제 중 오류: {str(e)}")
                 return False
             
+            # 미리보기가 완전히 로드될 때까지 대기
+            print("미리보기 최종 로딩 대기...")
+            time.sleep(5)  # 추가 대기
+            
             # 게시 버튼 찾기 및 클릭 로직
             try:
                 print("\n게시 버튼 찾는 중...")
-                submit_btn = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-                )
-                print("✅ 게시 버튼 발견")
+                for attempt in range(3):  # 최대 3번 시도
+                    try:
+                        submit_btn = WebDriverWait(self.driver, 10).until(  # 타임아웃 10초로 증가
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                        )
+                        print("✅ 게시 버튼 발견")
+                        
+                        if submit_btn.is_displayed() and submit_btn.is_enabled():
+                            print("📝 게시 버튼 클릭 가능 상태 확인")
+                            submit_btn.click()
+                            time.sleep(3)
+                            print("✅ 게시 버튼 클릭 완료")
+                            return True
+                        else:
+                            print(f"게시 버튼 상태 확인 실패 (시도 {attempt + 1}/3)")
+                            time.sleep(2)
+                    except Exception as e:
+                        print(f"게시 버튼 찾기 실패 (시도 {attempt + 1}/3): {str(e)}")
+                        time.sleep(2)
+                        
+                raise Exception("게시 버튼을 찾을 수 없거나 클릭할 수 없습니다")
                 
-                # 버튼 존재 여부 다시 한번 확인
-                if submit_btn.is_displayed() and submit_btn.is_enabled():
-                    print("📝 게시 버튼 클릭 가능 상태 확인")
-                    submit_btn.click()
-                    print("✅ 게시 버튼 클릭 완료")
-                    time.sleep(3)
-                    
-                    # 게시 완료 확인
-                    print("⏳ 게시 완료 확인 중...")
-                    if 'write' not in self.driver.current_url:  # 글쓰기 페이지를 벗어났는지 확인
-                        print("✅ 게시 성공 확인")
-                        print(f"'{band_info['name']}' 밴드에 포스팅 완료")
-                        return True
-                    else:
-                        print("❌ 게시 실패: 여전히 글쓰기 페이지에 있음")
-                        return False
-                else:
-                    print("❌ 게시 버튼이 클릭 불가능한 상태")
-                    return False
-                    
             except Exception as e:
                 print("❌ 게시 버튼 관련 오류 발생:")
                 print(f"- 오류 내용: {str(e)}")
                 print(f"- 현재 URL: {self.driver.current_url}")
                 return False
-            
+                
         except Exception as e:
             print(f"포스팅 실패: {str(e)}")
             return False
