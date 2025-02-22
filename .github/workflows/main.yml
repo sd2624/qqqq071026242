@@ -62,39 +62,75 @@ jobs:
         echo "=== 밴드 자동 포스팅 시작 ==="
         
         echo "1. VPN 상태 확인"
-        curl --socks5 127.0.0.1:1080 http://ip-api.com/json
+        IP_INFO=$(curl --socks5 127.0.0.1:1080 http://ip-api.com/json)
+        echo "현재 IP 정보:"
+        echo "$IP_INFO" | python3 -m json.tool
         
-        echo -e "\n2. Chrome 프로필 확인"
-        if [ -d "./chrome-profile" ]; then
-          echo "Chrome 프로필 폴더 존재: O"
-          echo "프로필 크기:"
-          du -sh ./chrome-profile
-          echo "프로필 내용:"
-          ls -la ./chrome-profile
-        else
-          echo "Chrome 프로필 폴더 없음"
-          exit 1
-        fi
+        echo -e "\n2. 로그인 프로세스 시작"
+        python3 - <<EOF
+        import json, time, datetime
+        def log(msg):
+            now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"[{now}] {msg}")
+            
+        with open('config.json', 'r') as f:
+            config = json.load(f)
         
-        echo -e "\n3. 로그인 정보 확인"
-        if [ -f "config.json" ]; then
-          echo "설정 파일 존재: O"
-          echo "이메일 정보:"
-          grep -o '"email": "[^"]*"' config.json || echo "이메일 정보 없음"
-        else
-          echo "설정 파일 없음"
-          exit 1
-        fi
+        log("=== 로그인 정보 ===")
+        log(f"이메일: {config['email']}")
+        log(f"비밀번호: {'*' * len(config['password'])}")
+        EOF
         
-        echo -e "\n4. 자동화 시작"
-        python auto_band_action.py 2>&1 | tee band_auto.log
+        echo -e "\n3. 자동화 실행 로그"
+        {
+          PYTHONUNBUFFERED=1 python auto_band_action.py 2>&1 | while IFS= read -r line; do
+            timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+            
+            # URL 패턴 강조
+            if [[ $line == *"http"* ]]; then
+              echo "============ 페이지 이동 ============"
+              echo "[$timestamp] $line"
+              echo "===================================="
+              
+            # 로그인 단계 강조
+            elif [[ $line == *"로그인"* ]] || [[ $line == *"이메일"* ]] || [[ $line == *"비밀번호"* ]]; then
+              echo "============ 로그인 단계 ============"
+              echo "[$timestamp] $line"
+              echo "===================================="
+              
+            # 밴드 이동 강조
+            elif [[ $line == *"밴드 이동"* ]] || [[ $line == *"밴드:"* ]]; then
+              echo "============ 밴드 작업 ============="
+              echo "[$timestamp] $line"
+              echo "===================================="
+              
+            # 포스팅 작업 강조
+            elif [[ $line == *"포스팅"* ]] || [[ $line == *"게시"* ]]; then
+              echo "============ 포스팅 작업 ==========="
+              echo "[$timestamp] $line"
+              echo "===================================="
+              
+            # 일반 로그
+            else
+              echo "[$timestamp] $line"
+            fi
+          done
+          
+          # 실행 결과 저장
+          echo -e "\n=== 실행 통계 ==="
+          echo "성공한 포스팅: $(grep -c "포스팅 완료" band_auto.log)"
+          echo "실패한 시도: $(grep -c "실패" band_auto.log)"
+          echo "총 페이지 이동: $(grep -c "http" band_auto.log)"
+          
+          # 마지막 상태 표시
+          echo -e "\n=== 마지막 작업 상태 ==="
+          tail -n 20 band_auto.log
+        }
         
-        echo -e "\n5. 실행 결과"
-        if [ -f "band_auto.log" ]; then
-          echo "=== 로그 내용 ==="
-          grep -E "로그인|페이지|밴드" band_auto.log || echo "관련 로그 없음"
-        fi
+        echo -e "\n=== 주요 접속 기록 ==="
+        grep -E "http|페이지 이동|현재 URL" band_auto.log || echo "접속 기록 없음"
       env:
         CHROME_PROFILE_PATH: "./chrome-profile"
         ALL_PROXY: "socks5://127.0.0.1:1080"
-        PYTHONUNBUFFERED: 1  # Python 로그 즉시 출력
+        PYTHONUNBUFFERED: 1
+        TZ: 'Asia/Seoul'  # 한국 시간으로 설정
