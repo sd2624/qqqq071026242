@@ -49,60 +49,70 @@ jobs:
       run: |
         echo "Chrome 프로세스 정리 중..."
         
-        # 기존 Chrome 프로세스 강제 종료 및 대기
-        pkill -9 -f chrome || true
-        pkill -9 -f chromedriver || true
-        sleep 5
+        # 모든 Chrome 관련 프로세스 강제 종료
+        pkill -9 -f "chrome" || true
+        pkill -9 -f "chromedriver" || true
+        pkill -9 -f "chromium" || true
         
-        # 프로필 잠금 파일 정리
-        rm -rf /tmp/.org.chromium.Chromium* || true
-        rm -rf /tmp/.com.google.Chrome* || true
-        rm -rf /tmp/chrome_profile_* || true
+        # 임시 파일 및 잠금 파일 제거
+        sudo rm -rf /tmp/.com.google.Chrome*
+        sudo rm -rf /tmp/.org.chromium*
+        sudo rm -rf /dev/shm/Chrome*
+        sudo rm -rf ~/.config/google-chrome
+        sudo rm -rf ~/.cache/google-chrome
+        
+        sleep 5
 
     - name: Extract Chrome Profile
       run: |
-        echo "Chrome 프로필 설정 중..."
+        echo "Chrome 프로필 초기화 중..."
         
-        # 프로필 디렉토리 생성
-        mkdir -p chrome-profile
+        # 타임스탬프를 포함한 고유 디렉토리 생성
+        PROFILE_DIR="chrome_profile_$(date +%s)"
         
-        # 권한 설정 (runner 사용자로 변경)
-        sudo chown -R runner:docker chrome-profile
-        chmod -R 755 chrome-profile
+        # 기존 프로필 디렉토리 정리
+        sudo rm -rf ./chrome-profile* || true
+        
+        # 새 프로필 디렉토리 생성
+        mkdir -p "$PROFILE_DIR/Default"
         
         # 프로필 압축 해제
-        unzip -o "chrome_profile.zip" -d ./chrome-profile
+        unzip -o "chrome_profile.zip" -d "./$PROFILE_DIR"
         
-        # Default 폴더 구조 확인
-        if [ ! -d "chrome-profile/Default" ]; then
-          mkdir -p chrome-profile/Default
-        fi
+        # 권한 설정
+        sudo chown -R $USER:$USER "$PROFILE_DIR"
+        chmod -R 755 "$PROFILE_DIR"
         
-        # 권한 재설정
-        sudo chown -R runner:docker chrome-profile
-        find chrome-profile -type d -exec chmod 755 {} \;
-        find chrome-profile -type f -exec chmod 644 {} \;
+        # 파일별 권한 설정
+        find "$PROFILE_DIR" -type f -exec chmod 644 {} \;
+        find "$PROFILE_DIR" -type d -exec chmod 755 {} \;
         
-        # 필수 파일 권한 추가 설정
-        sudo chmod 666 chrome-profile/Default/Cookies 2>/dev/null || true
-        sudo chmod 666 chrome-profile/Default/Login\ Data 2>/dev/null || true
-        sudo chmod 666 chrome-profile/Default/Web\ Data 2>/dev/null || true
-        sudo chmod 666 chrome-profile/Default/Network/Cookies 2>/dev/null || true
+        # 특수 파일 권한 설정
+        chmod 666 "$PROFILE_DIR/Default/Cookies" 2>/dev/null || true
+        chmod 666 "$PROFILE_DIR/Default/Login Data" 2>/dev/null || true
+        chmod 666 "$PROFILE_DIR/Default/Web Data" 2>/dev/null || true
         
-        # 디렉토리 권한 확인
-        echo "프로필 권한 확인:"
-        ls -la chrome-profile/Default/
+        # 프로필 디렉토리 심볼릭 링크 생성
+        ln -sfn "$PROFILE_DIR" chrome-profile
+        
+        # 환경 변수로 저장
+        echo "CHROME_PROFILE_DIR=$PROFILE_DIR" >> $GITHUB_ENV
+        
+        # 상태 확인
+        echo "프로필 디렉토리 구조:"
+        ls -la "$PROFILE_DIR/Default"
 
     - name: Run Auto Posting
       run: |
-        # Chrome 옵션 설정 (프로필 경로 수정)
+        # Chrome 옵션 설정 (최소화)
         export CHROME_OPTIONS="
-          --user-data-dir=$(pwd)/chrome-profile
+          --user-data-dir=$(pwd)/${CHROME_PROFILE_DIR}
           --profile-directory=Default
           --no-sandbox
           --disable-dev-shm-usage
-          --disable-blink-features=AutomationControlled
-          --disable-web-security
+          --disable-gpu
+          --disable-software-rasterizer
+          --disable-features=site-per-process
           --password-store=basic
         "
         
@@ -296,7 +306,7 @@ jobs:
         } | tee execution_summary.txt
 
       env:
-        CHROME_PROFILE_PATH: "./chrome-profile"
+        CHROME_PROFILE_PATH: "./${CHROME_PROFILE_DIR}"
         ALL_PROXY: "socks5://127.0.0.1:1080"
         PYTHONUNBUFFERED: 1
         TZ: 'Asia/Seoul'
