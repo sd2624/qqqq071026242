@@ -62,82 +62,40 @@ jobs:
         
     - name: Setup Chrome Profile
       run: |
-        # 작업 디렉토리 생성 및 권한 설정
-        WORK_DIR="$(pwd)/chrome-profile"
+        # 작업 디렉토리 설정 (절대 경로 사용)
+        WORK_DIR="${GITHUB_WORKSPACE}/chrome-profile"
+        echo "프로필 디렉토리: $WORK_DIR"
+        
+        # 기존 디렉토리 정리
         sudo rm -rf "$WORK_DIR"
-        mkdir -p "$WORK_DIR"
-        sudo chown -R $USER:$USER "$WORK_DIR"
-        chmod 755 "$WORK_DIR"
-        
-        # 프로필 다운로드 및 압축 해제
-        wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
-        unzip -q chrome_profile.zip -d "$WORK_DIR/" || true
-        
-        # 디렉토리 구조 생성
         mkdir -p "$WORK_DIR/Default"
         
-        # 필수 디렉토리에 권한 설정
-        for dir in Cache "Local Storage" "Session Storage" Extensions; do
-          mkdir -p "$WORK_DIR/Default/$dir"
-          chmod -R 755 "$WORK_DIR/Default/$dir"
-        done
-        
-        # 중요 파일 권한 설정
-        touch "$WORK_DIR/Default/Preferences"
-        touch "$WORK_DIR/Default/Cookies"
-        touch "$WORK_DIR/Default/Login Data"
-        chmod 644 "$WORK_DIR/Default/Preferences" "$WORK_DIR/Default/Cookies" "$WORK_DIR/Default/Login Data"
-        
-        # 소유권 설정
-        sudo chown -R runner:docker "$WORK_DIR"
-        
-        echo "프로필 설정 완료: $WORK_DIR"
-        ls -la "$WORK_DIR/Default/"
-        
-        # 환경 변수 설정
-        echo "CHROME_PROFILE_DIR=$WORK_DIR" >> $GITHUB_ENV
-
-    - name: Clean and Setup Chrome Profile
-      run: |
-        echo "Chrome 프로필 초기화..."
-        
-        # 임시 디렉토리 생성
-        WORK_DIR="/tmp/chrome_work_$$"
-        mkdir -p "$WORK_DIR"
-        cd "$WORK_DIR"
-        
-        # 기존 Chrome 프로세스 정리
-        pkill -9 -f "chrome" || true
-        pkill -9 -f "chromedriver" || true
-        sleep 2
-        
-        # 프로필 압축 해제
-        echo "프로필 압축 해제 중..."
-        unzip -q ../chrome_profile.zip
-        
-        # Default 폴더 확인 및 생성
-        if [ ! -d "Default" ]; then
-          mkdir -p Default
+        # 압축 파일 위치 확인
+        if [ -f "chrome_profile.zip" ]; then
+          echo "프로필 압축 파일 발견"
+          unzip -o chrome_profile.zip -d "$WORK_DIR"
+        else
+          echo "프로필 다운로드 시도"
+          wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
+          if [ ! -f "chrome_profile.zip" ]; then
+            echo "프로필 다운로드 실패"
+            exit 1
+          fi
+          unzip -o chrome_profile.zip -d "$WORK_DIR"
         fi
         
         # 권한 설정
-        sudo chown -R root:root . 
-        find . -type d -exec chmod 755 {} \;
-        find . -type f -exec chmod 644 {} \;
+        sudo chown -R $USER:$USER "$WORK_DIR"
+        find "$WORK_DIR" -type d -exec chmod 755 {} \;
+        find "$WORK_DIR" -type f -exec chmod 644 {} \;
         
-        # 중요 파일 권한 특별 설정
-        chmod 644 Default/Cookies Default/Login\ Data Default/Web\ Data 2>/dev/null || true
-        chmod 644 Default/Network/Cookies 2>/dev/null || true
+        # 필수 디렉토리 생성
+        for dir in "Cache" "Local Storage" "Session Storage" "Network"; do
+          mkdir -p "$WORK_DIR/Default/$dir"
+        done
         
-        # 잠금 파일 제거
-        find . -name "*.ldb" -delete
-        find . -name "*.log" -delete
-        find . -name "*.lock" -delete
-        find . -name "LOCK" -delete
-        
-        # 프로필 상태 출력
         echo "프로필 구조:"
-        ls -la Default/
+        ls -la "$WORK_DIR/Default/"
         
         # 환경 변수 설정
         echo "CHROME_PROFILE_DIR=$WORK_DIR" >> $GITHUB_ENV
