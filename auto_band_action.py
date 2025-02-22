@@ -327,7 +327,10 @@ def main():
         bot = BandAutoAction()
         
         print("\n============== 작업 시작 ==============")
-        print("1. 밴드 목록 수집 중...")
+        print("1. 로그인 시도...")
+        bot.login()  # 로그인 먼저 실행
+        
+        print("\n2. 밴드 목록 수집 중...")
         bands = bot.get_band_list()
         
         print("\n2. 설정 파일 읽기...")
