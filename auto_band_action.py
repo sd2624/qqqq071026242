@@ -319,33 +319,60 @@ class BandAutoAction:
             print("\n============== 밴드 목록 수집 시작 ==============")
             print("1. 피드 페이지 이동 시도...")
             self.driver.get('https://band.us/feed')
-            time.sleep(3)
+            time.sleep(5)  # 대기 시간 증가
             print(f"현재 URL: {self.driver.current_url}")
             
             print("\n2. 피드 페이지 로딩 대기...")
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
-            )
+            # myBandArea 대신 다른 선택자들도 시도
+            selectors = [
+                'div.myBandArea',
+                'div.myBandList',
+                'div.feed',
+                'button.myBandMoreView._btnMore'
+            ]
+            
+            element_found = False
+            for selector in selectors:
+                try:
+                    WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    element_found = True
+                    print(f"요소 발견: {selector}")
+                    break
+                except:
+                    continue
+                    
+            if not element_found:
+                raise Exception("피드 페이지 요소를 찾을 수 없습니다")
+                
             print("피드 페이지 로딩 완료")
             
-            print("\n3. '내 밴드 더보기' 버튼 찾는 중...")
-            for scroll_attempt in range(1, 4):
+            # 더보기 버튼 찾기 전에 스크롤
+            for scroll_attempt in range(1, 6):  # 최대 5번 시도
                 try:
+                    print(f"\n3. 더보기 버튼 찾기 시도 {scroll_attempt}/5...")
+                    
+                    # 스크롤 다운
+                    self.driver.execute_script("window.scrollBy(0, 300);")
+                    time.sleep(2)
+                    
+                    # 더보기 버튼 찾기
                     more_btn = WebDriverWait(self.driver, 5).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
                     )
-                    print(f"더보기 버튼 발견 (시도 {scroll_attempt}/3)")
+                    
+                    print("더보기 버튼 발견")
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", more_btn)
                     time.sleep(2)
                     more_btn.click()
-                    print("더보기 버튼 클릭 성공")
-                    time.sleep(3)
+                    print("더보기 버튼 클릭 완료")
+                    time.sleep(5)  # 클릭 후 대기 시간 증가
                     break
                 except:
-                    print(f"스크롤 시도 {scroll_attempt}/3 - 버튼 못찾음")
-                    self.driver.execute_script("window.scrollBy(0, 300);")
-                    time.sleep(1)
-            
+                    print(f"시도 {scroll_attempt} 실패, 다시 시도...")
+                    continue
+                    
             print("\n4. 밴드 목록 요소 찾는 중...")
             band_list = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[data-viewname="DMyGroupBandBannerView.MyGroupBandListView"]'))
