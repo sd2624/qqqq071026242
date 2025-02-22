@@ -38,6 +38,19 @@ jobs:
         
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
+
+    - name: Download Chrome Profile
+      run: |
+        echo "Chrome 프로필 다운로드 중..."
+        wget https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip -O chrome_profile.zip
+        
+        if [ ! -f "chrome_profile.zip" ]; then
+          echo "프로필 다운로드 실패"
+          exit 1
+        fi
+        
+        echo "프로필 다운로드 완료"
+        ls -la chrome_profile.zip
       
     - name: Check Profile Archive
       run: |
@@ -49,28 +62,27 @@ jobs:
         
     - name: Setup Chrome Profile
       run: |
-        # 작업 디렉토리 생성
-        PROFILE_DIR="chrome-profile"
-        mkdir -p "$PROFILE_DIR"
+        # 작업 디렉토리 생성 및 이동
+        WORK_DIR="$(pwd)/chrome-profile"
+        mkdir -p "$WORK_DIR"
         
-        echo "Extracting profile to $PROFILE_DIR"
-        unzip -o chrome_profile.zip -d "$PROFILE_DIR"
+        echo "프로필 압축 해제 중... ($WORK_DIR)"
+        unzip -o chrome_profile.zip -d "$WORK_DIR"
         
-        echo "Setting permissions..."
-        sudo chown -R $USER:$USER "$PROFILE_DIR"
-        chmod -R 755 "$PROFILE_DIR"
+        # 권한 설정
+        sudo chown -R runner:docker "$WORK_DIR"
+        chmod -R 755 "$WORK_DIR"
         
-        if [ -f "$PROFILE_DIR/Default/Cookies" ]; then
-          chmod 644 "$PROFILE_DIR/Default/Cookies"
-        fi
+        # 중요 파일 권한 설정
+        find "$WORK_DIR" -name "Cookies" -exec chmod 644 {} \;
+        find "$WORK_DIR" -name "Login Data" -exec chmod 644 {} \;
         
-        if [ -f "$PROFILE_DIR/Default/Login Data" ]; then
-          chmod 644 "$PROFILE_DIR/Default/Login Data"
-        fi
+        echo "프로필 설정 완료:"
+        ls -la "$WORK_DIR/Default"
         
-        echo "Profile setup completed at: $PROFILE_DIR"
-        ls -la "$PROFILE_DIR/Default"
-        
+        # 환경 변수 설정
+        echo "CHROME_PROFILE_DIR=$WORK_DIR" >> $GITHUB_ENV
+
     - name: Clean and Setup Chrome Profile
       run: |
         echo "Chrome 프로필 초기화..."
@@ -124,15 +136,15 @@ jobs:
 
     - name: Run Auto Posting
       run: |
+        # Chrome 옵션 설정
         export CHROME_OPTIONS="
-          --user-data-dir=$(pwd)/chrome-profile
+          --user-data-dir=${CHROME_PROFILE_DIR}
           --profile-directory=Default
           --no-sandbox
           --disable-dev-shm-usage
           --password-store=basic
-          --disable-features=TranslateUI
-          --disable-default-apps
-          --disable-extensions
+          --disable-gpu
+          --disable-software-rasterizer
         "
         
         # Chrome 옵션 최소화
@@ -339,7 +351,7 @@ jobs:
         } | tee execution_summary.txt
 
       env:
-        CHROME_PROFILE_PATH: "./chrome-profile"
+        CHROME_PROFILE_PATH: ${CHROME_PROFILE_DIR}
         XDG_CONFIG_HOME: ${CHROME_PROFILE_DIR}  # Chrome 설정 디렉토리
         DISPLAY: :99  # 가상 디스플레이
         ALL_PROXY: "socks5://127.0.0.1:1080"
