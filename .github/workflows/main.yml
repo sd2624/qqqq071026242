@@ -125,19 +125,21 @@ jobs:
 
     - name: Setup Chrome Profile
       run: |
-        # Chrome 옵션 설정
+        # 프로필 디렉토리 설정
         CHROME_PROFILE_DIR="${GITHUB_WORKSPACE}/chrome-profile"
         echo "프로필 디렉토리: $CHROME_PROFILE_DIR"
         
-        # Chrome 옵션 환경변수 설정
+        # Chrome 옵션 환경변수 설정 (--no-sandbox 제거)
         echo "CHROME_OPTIONS=
           --user-data-dir=${CHROME_PROFILE_DIR}
-          --no-sandbox
+          --profile-directory=Default
           --disable-dev-shm-usage
           --remote-debugging-port=9222
           --disable-gpu
           --disable-software-rasterizer
-          --disable-dev-shm-usage
+          --disable-background-networking
+          --disable-default-apps
+          --disable-sync
           --no-first-run
           --password-store=basic
         " >> $GITHUB_ENV
@@ -225,21 +227,14 @@ jobs:
         PYTHONUNBUFFERED: 1
         TZ: "Asia/Seoul"
       run: |
-        export CHROME_OPTIONS="
-          --user-data-dir=${CHROME_PROFILE_DIR}
-          --profile-directory=Default
-          --no-sandbox
-          --disable-dev-shm-usage
-          --password-store=basic
-          --disable-gpu
-          --disable-software-rasterizer
-        "
+        # Chrome 실행 시에만 --no-sandbox 옵션 추가
+        chrome_options="--no-sandbox ${CHROME_OPTIONS}"
+        echo "Chrome 실행 옵션: ${chrome_options}"
         
         # Chrome 옵션 최소화
         export CHROME_OPTIONS="
           --user-data-dir=${CHROME_PROFILE_DIR}
           --profile-directory=Default
-          --no-sandbox
           --disable-dev-shm-usage
           --disable-gpu
           --password-store=basic
