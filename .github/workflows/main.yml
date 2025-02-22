@@ -39,86 +39,77 @@ jobs:
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
       
+    - name: Clean Chrome processes
+      run: |
+        echo "Chrome 프로세스 정리 중..."
+        pkill -9 -f "chrome" || true
+        pkill -9 -f "chromedriver" || true
+        sleep 3
+        
+        # 모든 Chrome 관련 디렉토리 및 파일 정리
+        rm -rf ~/.cache/google-chrome
+        rm -rf ~/.config/google-chrome
+        rm -rf /tmp/.org.chromium.Chromium*
+        rm -rf /tmp/.com.google.Chrome*
+        rm -rf /tmp/chrome_profile_*
+        sleep 2
+
+    - name: Setup Chrome Profile
+      run: |
+        # 기본 디렉토리 생성
+        mkdir -p chrome_profile/Default
+        
+        # chrome_profile.zip이 있으면 압축 해제
+        if [ -f "chrome_profile.zip" ]; then
+          unzip -o chrome_profile.zip -d chrome_profile
+        fi
+        
+        # 권한 설정
+        chown -R $(id -u):$(id -g) chrome_profile
+        chmod -R 755 chrome_profile
+        
+        # Cookies 파일 권한 특별 설정
+        if [ -f "chrome_profile/Default/Cookies" ]; then
+          chmod 666 chrome_profile/Default/Cookies
+        fi
+        
+        # Debug 로그
+        echo "프로필 디렉토리 구조:"
+        ls -la chrome_profile/Default/
+        
+        # 환경 변수 설정
+        echo "CHROME_PROFILE_DIR=$(pwd)/chrome_profile" >> $GITHUB_ENV
+
     - name: Check Directory Structure
       run: |
         pwd
         echo "현재 작업 디렉토리 구조:"
         ls -la
-        
-    - name: Clean Chrome processes
-      run: |
-        echo "Chrome 프로세스 정리 중..."
-        
-        # 모든 Chrome 관련 프로세스 강제 종료
-        pkill -9 -f "chrome" || true
-        pkill -9 -f "chromedriver" || true
-        pkill -9 -f "chromium" || true
-        
-        # 임시 파일 및 잠금 파일 제거
-        sudo rm -rf /tmp/.com.google.Chrome*
-        sudo rm -rf /tmp/.org.chromium*
-        sudo rm -rf /dev/shm/Chrome*
-        sudo rm -rf ~/.config/google-chrome
-        sudo rm -rf ~/.cache/google-chrome
-        
-        sleep 5
-
-    - name: Extract Chrome Profile
-      run: |
-        echo "Chrome 프로필 초기화 중..."
-        
-        # 타임스탬프를 포함한 고유 디렉토리 생성
-        PROFILE_DIR="chrome_profile_$(date +%s)"
-        
-        # 기존 프로필 디렉토리 정리
-        sudo rm -rf ./chrome-profile* || true
-        
-        # 새 프로필 디렉토리 생성
-        mkdir -p "$PROFILE_DIR/Default"
-        
-        # 프로필 압축 해제
-        unzip -o "chrome_profile.zip" -d "./$PROFILE_DIR"
-        
-        # 권한 설정
-        sudo chown -R $USER:$USER "$PROFILE_DIR"
-        chmod -R 755 "$PROFILE_DIR"
-        
-        # 파일별 권한 설정
-        find "$PROFILE_DIR" -type f -exec chmod 644 {} \;
-        find "$PROFILE_DIR" -type d -exec chmod 755 {} \;
-        
-        # 특수 파일 권한 설정
-        chmod 666 "$PROFILE_DIR/Default/Cookies" 2>/dev/null || true
-        chmod 666 "$PROFILE_DIR/Default/Login Data" 2>/dev/null || true
-        chmod 666 "$PROFILE_DIR/Default/Web Data" 2>/dev/null || true
-        
-        # 프로필 디렉토리 심볼릭 링크 생성
-        ln -sfn "$PROFILE_DIR" chrome-profile
-        
-        # 환경 변수로 저장
-        echo "CHROME_PROFILE_DIR=$PROFILE_DIR" >> $GITHUB_ENV
-        
-        # 상태 확인
-        echo "프로필 디렉토리 구조:"
-        ls -la "$PROFILE_DIR/Default"
 
     - name: Run Auto Posting
       run: |
-        # Chrome 옵션 설정 (최소화)
+        # Chrome 옵션 설정
         export CHROME_OPTIONS="
-          --user-data-dir=$(pwd)/${CHROME_PROFILE_DIR}
+          --user-data-dir=$(pwd)/chrome_profile
           --profile-directory=Default
           --no-sandbox
           --disable-dev-shm-usage
           --disable-gpu
-          --disable-software-rasterizer
-          --disable-features=site-per-process
-          --password-store=basic
+          --disable-background-networking
+          --disable-default-apps
+          --disable-extensions
+          --disable-sync
+          --disable-translate
+          --hide-scrollbars
+          --metrics-recording-only
+          --mute-audio
+          --no-first-run
+          --safebrowsing-disable-auto-update
         "
         
         # 프로필 상태 확인
         echo "Chrome 프로필 상태:"
-        ls -la chrome-profile/Default/
+        ls -la chrome_profile/Default/
         
         echo -e "\n\033[1;36m=== 밴드 자동 포스팅 시작 ===\033[0m"
         echo -e "\033[1;33m현재 시각: $(date '+%Y-%m-%d %H:%M:%S')\033[0m"
@@ -306,7 +297,8 @@ jobs:
         } | tee execution_summary.txt
 
       env:
-        CHROME_PROFILE_PATH: "./${CHROME_PROFILE_DIR}"
+        CHROME_PROFILE_PATH: "$(pwd)/chrome_profile"
         ALL_PROXY: "socks5://127.0.0.1:1080"
+        CHROME_REMOTE_DEBUGGING_PORT: "9222"  # 원격 디버깅 포트 추가
         PYTHONUNBUFFERED: 1
         TZ: 'Asia/Seoul'
