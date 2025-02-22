@@ -465,7 +465,7 @@ class BandAutoAction:
             
             # 미리보기 로딩 대기
             print("미리보기 로딩 대기 중...")
-            time.sleep(240)  # 4분 대기
+            time.sleep(5)  # 5초 대기
             
             # URL 텍스트 삭제
             editor.clear()
@@ -546,15 +546,16 @@ def main():
                 if bot.post_to_band(band, post_url, url_num):
                     success_count += 1
                 
-                # 다음 밴드로 이동 전 대기 (4분)
+                # 다음 밴드로 이동 전 4~6분 랜덤 대기
                 if band_idx < len(bands):
+                    wait_time = random.randint(240, 360)  # 4분(240초) ~ 6분(360초)
                     print(f"\n현재 진행 상황:")
                     print(f"- URL {url_num}/{len(urls)}")
                     print(f"- 현재 URL: {post_url}")
                     print(f"- 밴드 진행: {band_idx}/{len(bands)}")
                     print(f"- 성공: {success_count}회")
-                    print("다음 밴드로 이동 전 4분 대기...")
-                    time.sleep(240)
+                    print(f"다음 밴드로 이동 전 {wait_time}초({wait_time/60:.1f}분) 대기...")
+                    time.sleep(wait_time)
             
             print(f"\nURL {url_num} 포스팅 통계:")
             print(f"- 작업한 URL: {post_url}")
