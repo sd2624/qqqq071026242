@@ -45,66 +45,83 @@ jobs:
         echo "현재 작업 디렉토리 구조:"
         ls -la
         
+    - name: Clean Chrome processes
+      run: |
+        echo "Chrome 프로세스 정리 중..."
+        
+        # 기존 Chrome 프로세스 강제 종료 및 대기
+        pkill -9 -f chrome || true
+        pkill -9 -f chromedriver || true
+        sleep 5
+        
+        # 프로필 잠금 파일 정리
+        rm -rf /tmp/.org.chromium.Chromium* || true
+        rm -rf /tmp/.com.google.Chrome* || true
+        rm -rf /tmp/chrome_profile_* || true
+
     - name: Extract Chrome Profile
       run: |
-        echo "Chrome 프로필 압축 해제 중..."
-        mkdir -p chrome-profile/Default
+        echo "Chrome 프로필 초기화 중..."
         
-        # 압축 해제 시 기존 구조 유지
-        unzip -o "chrome_profile.zip" -d ./chrome-profile || {
-          echo "chrome_profile.zip 파일을 찾을 수 없습니다."
-          ls -la
-          exit 1
-        }
+        # 작업 디렉토리 생성
+        WORK_DIR="chrome_work_$(date +%s)"
+        mkdir -p "$WORK_DIR"
+        cd "$WORK_DIR"
         
-        # 권한 설정
-        chmod -R 777 ./chrome-profile
+        # 프로필 압축 해제
+        unzip -o "../chrome_profile.zip"
         
-        # 프로필 구조 확인
-        echo "프로필 구조 확인:"
-        ls -la ./chrome-profile/Default/
-        
-        # 쿠키 파일 존재 확인
-        if [ -f "./chrome-profile/Default/Cookies" ]; then
-          echo "쿠키 파일 존재 확인됨"
+        # Default 폴더 구조 검증
+        if [ -d "Default" ]; then
+          echo "✓ Default 폴더 확인됨"
+          
+          # 중요 파일 존재 확인
+          for file in "Cookies" "Login Data" "Web Data" "Network/Cookies"; do
+            if [ -f "Default/$file" ]; then
+              echo "✓ $file 파일 존재"
+              chmod 644 "Default/$file"
+            else
+              echo "⚠️ $file 파일 누락"
+            fi
+          done
+          
+          # 잠금 파일 제거
+          find . -name "*.ldb" -delete
+          find . -name "*.log" -delete
+          find . -name "*.lock" -delete
+          find . -name "LOCK" -delete
+          
+          # 권한 설정
+          chmod -R 755 .
+          chmod -R 644 Default/*
+          
         else
-          echo "경고: 쿠키 파일이 없습니다"
+          echo "⚠️ Default 폴더 누락"
+          mkdir -p Default
         fi
         
+        cd ..
+        mv "$WORK_DIR" chrome-profile
+
     - name: Run Auto Posting
       run: |
-        # 고유한 Chrome 프로필 디렉토리 생성
-        UNIQUE_PROFILE_DIR="chrome-profile-$GITHUB_RUN_ID"
-        echo "생성할 프로필 디렉토리: $UNIQUE_PROFILE_DIR"
-        
-        mkdir -p "$UNIQUE_PROFILE_DIR/Default"
-        
-        # 기존 프로필 압축 해제
-        unzip -o "chrome_profile.zip" -d "./$UNIQUE_PROFILE_DIR" || {
-          echo "chrome_profile.zip 파일을 찾을 수 없습니다."
-          ls -la
-          exit 1
-        }
-        
-        chmod -R 777 "./$UNIQUE_PROFILE_DIR"
-        
-        # Chrome 옵션 환경변수 설정 (프로필 경로 수정)
+        # Chrome 옵션 설정
         export CHROME_OPTIONS="
-          --user-data-dir=$(pwd)/$UNIQUE_PROFILE_DIR
+          --user-data-dir=$(pwd)/chrome-profile
           --profile-directory=Default
           --no-sandbox
+          --password-store=basic
           --disable-dev-shm-usage
           --disable-blink-features=AutomationControlled
           --disable-web-security
-          --allow-running-insecure-content
           --disable-features=IsolateOrigins,site-per-process
-          --password-store=basic
+          --disable-site-isolation-trials
           --enable-features=NetworkService,NetworkServiceInProcess
-          --user-agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36'
         "
         
-        echo "Chrome 옵션 설정됨:"
-        echo "$CHROME_OPTIONS"
+        # 프로필 상태 확인
+        echo "Chrome 프로필 상태:"
+        ls -la chrome-profile/Default/
         
         echo -e "\n\033[1;36m=== 밴드 자동 포스팅 시작 ===\033[0m"
         echo -e "\033[1;33m현재 시각: $(date '+%Y-%m-%d %H:%M:%S')\033[0m"
@@ -292,7 +309,7 @@ jobs:
         } | tee execution_summary.txt
 
       env:
-        CHROME_PROFILE_PATH: "./$UNIQUE_PROFILE_DIR"
+        CHROME_PROFILE_PATH: "./chrome-profile"
         ALL_PROXY: "socks5://127.0.0.1:1080"
         PYTHONUNBUFFERED: 1
         TZ: 'Asia/Seoul'
