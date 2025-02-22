@@ -41,20 +41,39 @@ jobs:
 
     - name: Install Specific Chrome Version
       run: |
-        echo "Chrome 특정 버전 설치 중..."
-        wget -q https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_132.0.6263.0-1_amd64.deb
-        sudo apt-get install -y ./google-chrome-stable_132.0.6263.0-1_amd64.deb
-        rm google-chrome-stable_132.0.6263.0-1_amd64.deb
+        CHROME_VERSION="132.0.6263.0-1"
+        echo "Chrome $CHROME_VERSION 설치 중..."
+        wget -q "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb"
+        sudo apt-get install -y "./google-chrome-stable_${CHROME_VERSION}_amd64.deb"
+        rm "google-chrome-stable_${CHROME_VERSION}_amd64.deb"
         
         # 버전 확인
         installed_version=$(google-chrome --version)
         echo "설치된 Chrome 버전: $installed_version"
+
+    - name: Install Matching ChromeDriver
+      run: |
+        # Chrome 버전에서 정확한 버전 추출
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1-3)
+        echo "Chrome 버전: $CHROME_VERSION"
         
-        # 버전이 일치하는지 확인
-        if [[ "$installed_version" != *"132.0.6263"* ]]; then
-          echo "Chrome 버전이 일치하지 않습니다"
-          exit 1
-        fi
+        # ChromeDriver 다운로드 URL 설정
+        CHROMEDRIVER_VERSION="132.0.6263.0"  # Chrome 버전과 정확히 일치
+        DOWNLOAD_URL="https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip"
+        
+        echo "ChromeDriver 다운로드 중... (버전: $CHROMEDRIVER_VERSION)"
+        wget -q "$DOWNLOAD_URL" -O chromedriver.zip
+        
+        # 기존 ChromeDriver 제거 및 새 버전 설치
+        sudo rm -f /usr/local/bin/chromedriver
+        unzip -o chromedriver.zip
+        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        rm -rf chromedriver.zip chromedriver-linux64
+        
+        # 설치 확인
+        echo "ChromeDriver 설치됨:"
+        chromedriver --version
 
     - name: Check Chrome and Chromedriver Version
       run: |
