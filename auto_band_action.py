@@ -168,21 +168,53 @@ class BandAutoAction:
         """메인 페이지 로딩 완료 대기"""
         try:
             print("\n메인 페이지 로딩 대기 중...")
-            # 피드 페이지의 특정 요소가 로드될 때까지 대기
-            WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.feed'))
-            )
-            
-            # 현재 URL이 메인 페이지인지 확인
             current_url = self.driver.current_url
-            if 'band.us' not in current_url:
-                raise Exception(f"잘못된 페이지로 이동됨: {current_url}")
+            print(f"현재 URL: {current_url}")
+            
+            # validation_welcome 페이지 체크
+            if 'validation_welcome' in current_url:
+                print("인증 페이지 발견, 대기 중...")
+                time.sleep(5)
                 
-            print(f"메인 페이지 로딩 완료: {current_url}")
-            return True
+                # 인증 페이지에서 특정 요소를 찾아 클릭하거나 대기
+                try:
+                    # 인증 페이지에서 다음으로 진행하는 버튼이나 요소 찾기
+                    next_btn = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-confirm'))
+                    )
+                    next_btn.click()
+                    time.sleep(3)
+                except Exception as e:
+                    print(f"인증 페이지 처리 중 오류 (무시됨): {str(e)}")
+            
+            # band.us로 리다이렉트 될 때까지 대기
+            wait_time = 0
+            while wait_time < timeout:
+                current_url = self.driver.current_url
+                print(f"URL 확인 중: {current_url}")
+                
+                if current_url == "https://band.us/":
+                    print("밴드 메인 페이지 도달")
+                    # 피드 로딩 대기
+                    try:
+                        WebDriverWait(self.driver, 10).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandList,div.feed,div.myBandArea'))
+                        )
+                        print("메인 페이지 요소 로딩 완료")
+                        return True
+                    except Exception as e:
+                        print(f"메인 페이지 요소 로딩 실패: {str(e)}")
+                
+                time.sleep(3)
+                wait_time += 3
+                print(f"대기 중... ({wait_time}/{timeout}초)")
+                
+            raise Exception(f"타임아웃: 메인 페이지 로딩 실패 (현재 URL: {current_url})")
             
         except Exception as e:
-            print(f"메인 페이지 로딩 실패: {str(e)}")
+            print(f"\n메인 페이지 로딩 실패:")
+            print(f"마지막 URL: {self.driver.current_url}")
+            print(f"오류 내용: {str(e)}")
             return False
 
     def login(self):
