@@ -39,6 +39,23 @@ jobs:
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
+    - name: Install Specific Chrome Version
+      run: |
+        echo "Chrome 특정 버전 설치 중..."
+        wget -q https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_132.0.6263.0-1_amd64.deb
+        sudo apt-get install -y ./google-chrome-stable_132.0.6263.0-1_amd64.deb
+        rm google-chrome-stable_132.0.6263.0-1_amd64.deb
+        
+        # 버전 확인
+        installed_version=$(google-chrome --version)
+        echo "설치된 Chrome 버전: $installed_version"
+        
+        # 버전이 일치하는지 확인
+        if [[ "$installed_version" != *"132.0.6263"* ]]; then
+          echo "Chrome 버전이 일치하지 않습니다"
+          exit 1
+        fi
+
     - name: Check Chrome and Chromedriver Version
       run: |
         # Chrome 버전 확인 (오류 처리 추가)
