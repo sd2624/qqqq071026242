@@ -61,62 +61,49 @@ jobs:
 
     - name: Extract Chrome Profile
       run: |
-        echo "Chrome 프로필 초기화 중..."
+        echo "Chrome 프로필 설정 중..."
         
-        # 작업 디렉토리 생성
-        WORK_DIR="chrome_work_$(date +%s)"
-        mkdir -p "$WORK_DIR"
-        cd "$WORK_DIR"
+        # 프로필 디렉토리 생성
+        mkdir -p chrome-profile
+        
+        # 권한 설정 (runner 사용자로 변경)
+        sudo chown -R runner:docker chrome-profile
+        chmod -R 755 chrome-profile
         
         # 프로필 압축 해제
-        unzip -o "../chrome_profile.zip"
+        unzip -o "chrome_profile.zip" -d ./chrome-profile
         
-        # Default 폴더 구조 검증
-        if [ -d "Default" ]; then
-          echo "✓ Default 폴더 확인됨"
-          
-          # 중요 파일 존재 확인
-          for file in "Cookies" "Login Data" "Web Data" "Network/Cookies"; do
-            if [ -f "Default/$file" ]; then
-              echo "✓ $file 파일 존재"
-              chmod 644 "Default/$file"
-            else
-              echo "⚠️ $file 파일 누락"
-            fi
-          done
-          
-          # 잠금 파일 제거
-          find . -name "*.ldb" -delete
-          find . -name "*.log" -delete
-          find . -name "*.lock" -delete
-          find . -name "LOCK" -delete
-          
-          # 권한 설정
-          chmod -R 755 .
-          chmod -R 644 Default/*
-          
-        else
-          echo "⚠️ Default 폴더 누락"
-          mkdir -p Default
+        # Default 폴더 구조 확인
+        if [ ! -d "chrome-profile/Default" ]; then
+          mkdir -p chrome-profile/Default
         fi
         
-        cd ..
-        mv "$WORK_DIR" chrome-profile
+        # 권한 재설정
+        sudo chown -R runner:docker chrome-profile
+        find chrome-profile -type d -exec chmod 755 {} \;
+        find chrome-profile -type f -exec chmod 644 {} \;
+        
+        # 필수 파일 권한 추가 설정
+        sudo chmod 666 chrome-profile/Default/Cookies 2>/dev/null || true
+        sudo chmod 666 chrome-profile/Default/Login\ Data 2>/dev/null || true
+        sudo chmod 666 chrome-profile/Default/Web\ Data 2>/dev/null || true
+        sudo chmod 666 chrome-profile/Default/Network/Cookies 2>/dev/null || true
+        
+        # 디렉토리 권한 확인
+        echo "프로필 권한 확인:"
+        ls -la chrome-profile/Default/
 
     - name: Run Auto Posting
       run: |
-        # Chrome 옵션 설정
+        # Chrome 옵션 설정 (프로필 경로 수정)
         export CHROME_OPTIONS="
           --user-data-dir=$(pwd)/chrome-profile
           --profile-directory=Default
           --no-sandbox
-          --password-store=basic
           --disable-dev-shm-usage
           --disable-blink-features=AutomationControlled
           --disable-web-security
-          --disable-features=IsolateOrigins,site-per-process
-          --disable-site-isolation-trials
-          --enable-features=NetworkService,NetworkServiceInProcess
+          --password-store=basic
         "
         
         # 프로필 상태 확인
