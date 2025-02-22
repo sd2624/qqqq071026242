@@ -56,27 +56,42 @@ jobs:
         CHROME_VERSION=$(echo "$chrome_version" | awk '{print $NF}' | cut -d'.' -f1)
         echo "추출된 메이저 버전: $CHROME_VERSION"
 
-    - name: Install Compatible Chromedriver
+    - name: Download and Install Correct ChromeDriver
       run: |
+        # Chrome 버전 확인 및 정제
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1-3)
         if [ -z "$CHROME_VERSION" ]; then
-          echo "Chrome 버전을 찾을 수 없어 최신 버전의 Chromedriver를 설치합니다."
-          CHROMEDRIVER_VERSION=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE)
-        else
-          CHROMEDRIVER_VERSION=$(wget -qO- "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
-        fi
-        
-        echo "Chromedriver 버전: $CHROMEDRIVER_VERSION"
-        wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
-        
-        if [ ! -f "chromedriver_linux64.zip" ]; then
-          echo "Chromedriver 다운로드 실패"
+          echo "Chrome 버전 확인 실패"
           exit 1
         fi
+        echo "감지된 Chrome 버전: $CHROME_VERSION"
         
+        # ChromeDriver 버전 확인
+        LATEST_DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
+        if [ -z "$LATEST_DRIVER_VERSION" ]; then
+          echo "ChromeDriver 버전 확인 실패, 기본 최신 버전 사용"
+          LATEST_DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
+        fi
+        echo "설치할 ChromeDriver 버전: $LATEST_DRIVER_VERSION"
+        
+        # 기존 ChromeDriver 제거
+        sudo rm -f /usr/local/bin/chromedriver
+        sudo rm -f /usr/bin/chromedriver
+        
+        # ChromeDriver 다운로드 및 설치
+        echo "ChromeDriver 다운로드 중..."
+        wget -q "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER_VERSION/chromedriver_linux64.zip"
+        
+        # 압축 해제 및 설치
+        echo "ChromeDriver 설치 중..."
         unzip -o chromedriver_linux64.zip
         sudo mv chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
         rm chromedriver_linux64.zip
+        
+        # 설치 확인
+        echo "ChromeDriver 설치 완료"
+        chromedriver --version
 
     - name: Download Chrome Profile
       run: |
