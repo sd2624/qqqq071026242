@@ -16,9 +16,13 @@ class BandAutoAction:
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.join(self.script_dir, 'config.json')
         self.bands_file = os.path.join(self.script_dir, 'band_urls.json')
+        self.driver = None  # driver 초기화 추가
         self.setup_vpn()
-        self.setup_driver()
         
+        # driver 설정 실패 시 예외 처리 추가
+        if not self.setup_driver():
+            raise Exception("Chrome driver 초기화 실패")
+            
     def setup_vpn(self):
         """한국 VPN 연결 확인"""
         try:
@@ -52,72 +56,93 @@ class BandAutoAction:
             
             # GitHub Actions 환경인 경우
             if os.getenv('GITHUB_ACTIONS'):
-                options.add_argument('--user-data-dir=./chrome-profile')
+                # 기존 압축된 프로필 사용
+                profile_dir = "chrome-profile"
+                
+                # 프로필 디렉토리가 없으면 생성
+                if not os.path.exists(profile_dir):
+                    os.makedirs(f"{profile_dir}/Default", exist_ok=True)
+                
+                # 압축된 프로필 해제 (기존 파일 덮어쓰기)
+                if os.path.exists("chrome_profile.zip"):
+                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
+                    
+                # 권한 설정
+                os.system(f"chmod -R 777 {profile_dir}")
+                
+                # Chrome 옵션 설정
+                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
                 options.add_argument('--profile-directory=Default')
                 options.add_argument('--no-sandbox')
                 options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                options.add_argument('--disable-web-security')  # CORS 비활성화
-                options.add_argument('--allow-running-insecure-content')  # 보안 컨텐츠 허용
-                options.add_argument('--disable-features=IsolateOrigins,site-per-process')  # 프로세스 격리 비활성화
-                
-                # 쿠키/캐시 보존 설정
                 options.add_argument('--password-store=basic')
-                options.add_argument('--enable-features=NetworkService,NetworkServiceInProcess')
+                options.add_argument('--disable-blink-features=AutomationControlled')
                 
                 # 프록시 설정
                 options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
                 
-                # User Agent 설정
-                options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36')
-                
-                # 실험적 기능 및 자동화 감지 방지
+                # 자동화 감지 방지
                 options.add_experimental_option('excludeSwitches', ['enable-automation'])
                 options.add_experimental_option('useAutomationExtension', False)
-                
-                # 프로필 관련 기본 설정 유지
-                prefs = {
-                    'profile.default_content_settings.popups': 0,
-                    'credentials_enable_service': True,
-                    'profile.password_manager_enabled': True,
-                    'profile.default_content_setting_values.notifications': 2
-                }
-                options.add_experimental_option('prefs', prefs)
+
             else:
-                # 로컬 환경 설정
-                chrome_profile_path = os.path.join(self.script_dir, 'chrome-profile')
-                options.add_argument(f'--user-data-dir={chrome_profile_path}')
+                # 로컬 환경에서는 기존 설정 사용
+                timestamp = int(time.time() * 1000)
+                profile_dir = f"chrome_profile_{timestamp}"
+                
+                # 기존 프로필 디렉토리 제거
+                if os.path.exists(profile_dir):
+                    shutil.rmtree(profile_dir)
+                time.sleep(1)
+                
+                # 새 프로필 디렉토리 생성
+                os.makedirs(profile_dir, exist_ok=True)
+                
+                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
                 options.add_argument('--profile-directory=Default')
+                
+                # 기본 옵션
+                options.add_argument('--no-sandbox')
                 options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-gpu')
+                options.add_argument('--disable-software-rasterizer')
+                
+                # 프로세스 분리 비활성화
+                options.add_argument('--disable-features=IsolateOrigins,site-per-process')
+                options.add_argument('--disable-site-isolation-trials')
+                
+                # 기타 필요한 설정
+                options.add_argument('--no-first-run')
+                options.add_argument('--no-default-browser-check')
+                options.add_argument('--password-store=basic')
                 options.add_argument('--disable-blink-features=AutomationControlled')
+                
+                # 프록시 설정
+                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
+                
+                # 자동화 감지 방지
                 options.add_experimental_option('excludeSwitches', ['enable-automation'])
                 options.add_experimental_option('useAutomationExtension', False)
-            
+
+            # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
-            # URL 변경 이벤트 감지를 위한 스크립트 추가
-            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                'source': '''
-                    // 기존 webdriver 감지 방지 코드...
-                    
-                    // URL 변경 감지
-                    let lastUrl = document.location.href;
-                    new MutationObserver(() => {
-                        const url = document.location.href;
-                        if (url !== lastUrl) {
-                            lastUrl = url;
-                            console.log('URL_CHANGED: ' + url);
-                        }
-                    }).observe(document, {subtree: true, childList: true});
-                '''
-            })
+            # 초기 페이지 로드 테스트
+            self.driver.get('about:blank')
+            time.sleep(2)
             
-            print(f"Chrome driver initialized (Profile: {os.getenv('CHROME_PROFILE_PATH')})")
+            print(f"Chrome driver initialized with profile: {profile_dir}")
             return True
             
         except Exception as e:
             print(f"Driver setup failed: {str(e)}")
+            if self.driver:
+                try:
+                    self.driver.quit()
+                except:
+                    pass
+                self.driver = None
             return False
 
     def navigate_to_url(self, url):
@@ -142,30 +167,39 @@ class BandAutoAction:
     def login(self):
         try:
             print("\n============== 로그인 시작 ==============")
-            self.navigate_to_url('https://auth.band.us/login')
+            print(f"초기 URL: {self.driver.current_url}")
+            
+            # 로그인 페이지로 이동
+            login_url = 'https://auth.band.us/login'
+            print(f"\n1. 로그인 페이지로 이동: {login_url}")
+            self.navigate_to_url(login_url)
+            print(f"현재 URL: {self.driver.current_url}")
             time.sleep(3)
             
             # 이메일 로그인 버튼 찾고 클릭
-            print("2. 이메일 로그인 버튼 찾는 중...")
+            print("\n2. 이메일 로그인 버튼 찾는 중...")
             email_login_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, '.uButtonRound.-h56.-icoType.-email'))
             )
             email_login_btn.click()
-            print("   이메일 로그인 버튼 클릭 완료")
+            print(f"현재 URL: {self.driver.current_url}")
             time.sleep(2)
 
-            # 이메일 입력
-            print("3. 이메일 입력...")
+            # 이메일 입력 페이지 확인
+            print("\n3. 이메일 입력 페이지...")
+            print(f"현재 URL: {self.driver.current_url}")
             email_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'input_email'))
             )
+            
             # config.json에서 이메일 가져오기
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 email = config.get('email', '')
             
+            print(f"이메일 입력 시작: {email}")
             email_input.send_keys(email)
-            print(f"   이메일 입력 완료: {email}")
+            print("이메일 입력 완료")
             time.sleep(1)
             
             # 다음 버튼 클릭
@@ -173,17 +207,20 @@ class BandAutoAction:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
             )
             email_next_btn.click()
-            print("   다음 버튼 클릭 완료")
+            print("\n4. 다음 버튼 클릭")
+            print(f"현재 URL: {self.driver.current_url}")
             time.sleep(2)
 
-            # 비밀번호 입력
-            print("4. 비밀번호 입력...")
+            # 비밀번호 입력 페이지 확인
+            print("\n5. 비밀번호 입력 페이지...")
+            print(f"현재 URL: {self.driver.current_url}")
             pw_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'pw'))
             )
             password = config.get('password', '')
+            print("비밀번호 입력 시작")
             pw_input.send_keys(password)
-            print("   비밀번호 입력 완료")
+            print("비밀번호 입력 완료")
             time.sleep(1)
             
             # 로그인 버튼 클릭
@@ -191,18 +228,24 @@ class BandAutoAction:
                 EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
             )
             login_btn.click()
-            print("   로그인 버튼 클릭 완료")
+            print("\n6. 로그인 버튼 클릭")
+            print(f"현재 URL: {self.driver.current_url}")
 
             # 메인 페이지 로딩 대기
-            print("5. 메인 페이지 로딩 대기 중...")
+            print("\n7. 메인 페이지 로딩 대기 중...")
+            time.sleep(5)
+            print(f"최종 URL: {self.driver.current_url}")
+            
             if not self.wait_for_main_page():
                 raise Exception("메인 페이지 로딩 실패")
                 
-            print("로그인 성공!")
+            print("\n로그인 성공!")
+            print(f"최종 접속 URL: {self.driver.current_url}")
             print("==========================================")
             
         except Exception as e:
             print("\n============== 로그인 실패 ==============")
+            print(f"마지막 URL: {self.driver.current_url}")
             print(f"오류 내용: {str(e)}")
             print("========================================")
             raise
@@ -366,11 +409,12 @@ class BandAutoAction:
 
     def cleanup(self):
         """리소스 정리"""
-        if hasattr(self, 'driver'):
+        if self.driver:  # driver가 존재할 때만 정리
             try:
                 self.driver.quit()
             except:
                 pass
+            self.driver = None
             
         # VPN 연결 해제
         try:
@@ -378,6 +422,10 @@ class BandAutoAction:
             print("VPN disconnected")
         except:
             pass
+
+    def __del__(self):
+        """소멸자에서 리소스 정리"""
+        self.cleanup()
 
 def main():
     bot = None
