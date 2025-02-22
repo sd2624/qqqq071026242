@@ -41,24 +41,35 @@ jobs:
 
     - name: Install Chrome and ChromeDriver
       run: |
-        # 안정적인 Chrome 버전 설치
+        # 최신 안정 버전 Chrome 설치
         wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-        sudo apt install ./google-chrome-stable_current_amd64.deb
+        sudo apt install -y ./google-chrome-stable_current_amd64.deb
         rm google-chrome-stable_current_amd64.deb
         
-        # 설치된 Chrome 버전 확인
-        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1-3)
+        # Chrome 버전 확인
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
         echo "설치된 Chrome 버전: $CHROME_VERSION"
         
-        # 호환되는 ChromeDriver 설치
-        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%%.*}")
-        echo "설치할 ChromeDriver 버전: $CHROMEDRIVER_VERSION"
+        # ChromeDriver 설치 (Chrome for Testing 사용)
+        MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d'.' -f1)
+        JSON_URL="https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json"
         
-        wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
-        unzip -o chromedriver_linux64.zip
-        sudo mv chromedriver /usr/local/bin/
+        # JSON에서 ChromeDriver URL 추출
+        CHROMEDRIVER_URL=$(curl -s $JSON_URL | jq -r ".milestones.\"$MAJOR_VERSION\".downloads.chromedriver[] | select(.platform==\"linux64\").url")
+        
+        if [ -z "$CHROMEDRIVER_URL" ]; then
+          echo "ChromeDriver URL을 찾을 수 없습니다."
+          exit 1
+        fi
+        
+        echo "ChromeDriver 다운로드 URL: $CHROMEDRIVER_URL"
+        wget -q "$CHROMEDRIVER_URL" -O chromedriver.zip
+        
+        # ChromeDriver 설치
+        unzip -o chromedriver.zip
+        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
-        rm chromedriver_linux64.zip
+        rm -rf chromedriver.zip chromedriver-linux64
         
         # 버전 확인
         echo "Chrome 버전:"
