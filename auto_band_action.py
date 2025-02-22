@@ -171,7 +171,7 @@ class BandAutoAction:
             current_url = self.driver.current_url
             print(f"현재 URL: {current_url}")
             
-            # 현재 URL이 validation_welcome이면 처리
+            # validation_welcome 페이지 체크
             if 'validation_welcome' in current_url:
                 print("인증 페이지 발견, 처리 중...")
                 try:
@@ -188,16 +188,22 @@ class BandAutoAction:
             self.driver.get('https://band.us/feed')
             time.sleep(3)
             
-            # 피드 페이지 로딩 확인
-            try:
-                WebDriverWait(self.driver, timeout).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
-                )
-                print("피드 페이지 로딩 완료")
-                return True
-            except Exception as e:
-                print(f"피드 페이지 로딩 실패: {str(e)}")
-                return False
+            # 버전0과 동일하게 처리
+            start_time = time.time()
+            while (time.time() - start_time < timeout):
+                try:
+                    # 피드 페이지의 특정 요소들 중 하나라도 발견되면 성공
+                    feed_elements = self.driver.find_elements(By.CSS_SELECTOR, 
+                        'div.myBandList, div.feed, div.myBandArea, button.myBandMoreView._btnMore')
+                    if feed_elements:
+                        print("밴드 피드 페이지 로딩 완료")
+                        return True
+                except:
+                    pass
+                time.sleep(2)
+                print(f"피드 페이지 로딩 대기 중... ({int(time.time() - start_time)}초)")
+                
+            return False
                 
         except Exception as e:
             print(f"\n페이지 로딩 실패:")
@@ -270,29 +276,31 @@ class BandAutoAction:
             print("\n6. 로그인 버튼 클릭")
             login_btn.click()
             
-            # 즉시 URL 체크 및 로깅
-            for i in range(5):  # 5번 URL 체크 (1초 간격)
-                current_url = self.driver.current_url
-                print(f"로그인 후 URL 체크 #{i+1}: {current_url}")
-                time.sleep(1)
+            # 즉시 URL 체크
+            time.sleep(2)
+            current_url = self.driver.current_url
+            print(f"\n로그인 버튼 클릭 직후 URL: {current_url}")
             
-            # validation_welcome 페이지 체크
-            if 'validation_welcome' in current_url:
-                print("\n인증 페이지 발견!")
-                try:
-                    next_btn = WebDriverWait(self.driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-confirm'))
-                    )
-                    next_btn.click()
-                    time.sleep(2)
-                    print(f"인증 페이지 처리 후 URL: {self.driver.current_url}")
-                except Exception as e:
-                    print(f"인증 페이지 처리 중 오류 (무시됨): {str(e)}")
-
-            # 메인 페이지 로딩 대기
-            print("\n7. 메인 페이지 로딩 대기 중...")
-            if not self.wait_for_main_page():
-                raise Exception("메인 페이지 로딩 실패")
+            # band.us/feed로 직접 이동
+            print("\nband.us/feed 페이지로 이동 중...")
+            self.driver.get('https://band.us/feed')
+            time.sleep(5)
+            print(f"현재 URL: {self.driver.current_url}")
+            
+            # 피드 페이지 로딩 확인
+            try:
+                # 더보기 버튼 바로 찾기
+                more_btn = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                )
+                print("더보기 버튼 발견")
+                more_btn.click()
+                print("더보기 버튼 클릭 완료")
+                time.sleep(3)
+                return True
+            except Exception as e:
+                print(f"피드 페이지 로딩 실패: {str(e)}")
+                return False
                 
             print("\n로그인 성공!")
             print(f"최종 접속 URL: {self.driver.current_url}")
@@ -556,3 +564,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
