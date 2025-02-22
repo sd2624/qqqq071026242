@@ -73,9 +73,24 @@ jobs:
         
     - name: Run Auto Posting
       run: |
-        # Chrome 옵션 환경변수 설정
+        # 고유한 Chrome 프로필 디렉토리 생성
+        UNIQUE_PROFILE_DIR="chrome-profile-$GITHUB_RUN_ID"
+        echo "생성할 프로필 디렉토리: $UNIQUE_PROFILE_DIR"
+        
+        mkdir -p "$UNIQUE_PROFILE_DIR/Default"
+        
+        # 기존 프로필 압축 해제
+        unzip -o "chrome_profile.zip" -d "./$UNIQUE_PROFILE_DIR" || {
+          echo "chrome_profile.zip 파일을 찾을 수 없습니다."
+          ls -la
+          exit 1
+        }
+        
+        chmod -R 777 "./$UNIQUE_PROFILE_DIR"
+        
+        # Chrome 옵션 환경변수 설정 (프로필 경로 수정)
         export CHROME_OPTIONS="
-          --user-data-dir=$(pwd)/chrome-profile
+          --user-data-dir=$(pwd)/$UNIQUE_PROFILE_DIR
           --profile-directory=Default
           --no-sandbox
           --disable-dev-shm-usage
@@ -277,8 +292,7 @@ jobs:
         } | tee execution_summary.txt
 
       env:
-        CHROME_PROFILE_PATH: "./chrome-profile"
-        CHROME_OPTIONS: "$CHROME_OPTIONS"
+        CHROME_PROFILE_PATH: "./$UNIQUE_PROFILE_DIR"
         ALL_PROXY: "socks5://127.0.0.1:1080"
         PYTHONUNBUFFERED: 1
         TZ: 'Asia/Seoul'

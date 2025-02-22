@@ -96,30 +96,53 @@ class BandAutoAction:
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
-            # 자동화 감지 방지 스크립트 주입
+            # URL 변경 이벤트 감지를 위한 스크립트 추가
             self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
                 'source': '''
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined
-                    });
-                    Object.defineProperty(navigator, 'plugins', {
-                        get: () => [1, 2, 3, 4, 5]
-                    });
+                    // 기존 webdriver 감지 방지 코드...
+                    
+                    // URL 변경 감지
+                    let lastUrl = document.location.href;
+                    new MutationObserver(() => {
+                        const url = document.location.href;
+                        if (url !== lastUrl) {
+                            lastUrl = url;
+                            console.log('URL_CHANGED: ' + url);
+                        }
+                    }).observe(document, {subtree: true, childList: true});
                 '''
             })
             
-            print("Chrome driver initialized")
+            print(f"Chrome driver initialized (Profile: {os.getenv('CHROME_PROFILE_PATH')})")
             return True
             
         except Exception as e:
             print(f"Driver setup failed: {str(e)}")
             return False
 
+    def navigate_to_url(self, url):
+        """URL로 이동하고 상태를 출력"""
+        try:
+            print(f"\n{'='*50}")
+            print(f"URL 이동 시도: {url}")
+            print(f"{'='*50}\n")
+            
+            self.driver.get(url)
+            time.sleep(3)
+            
+            current_url = self.driver.current_url
+            print(f"현재 URL: {current_url}")
+            
+            return current_url == url or url in current_url
+            
+        except Exception as e:
+            print(f"URL 이동 실패: {str(e)}")
+            return False
+
     def login(self):
         try:
             print("\n============== 로그인 시작 ==============")
-            print("1. 로그인 페이지 이동...")
-            self.driver.get('https://auth.band.us/login')
+            self.navigate_to_url('https://auth.band.us/login')
             time.sleep(3)
             
             # 이메일 로그인 버튼 찾고 클릭
