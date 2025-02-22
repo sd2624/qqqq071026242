@@ -59,6 +59,22 @@ jobs:
         
     - name: Run Auto Posting
       run: |
+        # Chrome 옵션 환경변수 설정
+        export CHROME_OPTIONS="
+          --user-data-dir=./chrome_profile
+          --no-sandbox
+          --disable-dev-shm-usage
+          --disable-blink-features=AutomationControlled
+          --start-maximized
+          --disable-extensions
+          --disable-default-apps
+          --no-first-run
+          --user-agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.178 Safari/537.36'
+        "
+        
+        echo "Chrome 옵션 설정됨:"
+        echo "$CHROME_OPTIONS"
+        
         echo -e "\n\033[1;36m=== 밴드 자동 포스팅 시작 ===\033[0m"
         echo -e "\033[1;33m현재 시각: $(date '+%Y-%m-%d %H:%M:%S')\033[0m"
         echo -e "\033[1;36m======================================\033[0m\n"
@@ -77,6 +93,19 @@ jobs:
           
           # 로그인 관련 메시지 우선 처리
           case "$line" in
+            *"driver.get("*|*"이동:"*|*"URL:"*)
+              echo -e "\n\033[1;35m🌐 페이지 이동\033[0m"
+              echo "[$timestamp] 현재 URL: ${line#*\'}"  # URL 부분만 추출
+              echo "----------------------------------------"
+              ;;
+              
+            *"밴드로 이동"*|*"URL 주소:"*)
+              echo -e "\n\033[1;36m🔄 페이지 전환\033[0m"
+              echo "[$timestamp] $line"
+              echo "현재 작업: 밴드 페이지 로딩"
+              echo "----------------------------------------"
+              ;;
+              
             *"로그인 시작"*|*"로그인 시도"*)
               echo -e "\n\033[1;34m🔐 로그인 프로세스 시작\033[0m"
               echo "[$timestamp] $line"
@@ -198,6 +227,11 @@ jobs:
               ;;
           esac
           
+          # URL 패턴 감지 및 로깅
+          if [[ "$line" =~ https?:// ]]; then
+            echo -e "\033[1;34m🔗 접속 URL: $line\033[0m"
+          fi
+          
           echo "[$timestamp] $line" >> band_auto.log
           
         done
@@ -228,6 +262,7 @@ jobs:
 
       env:
         CHROME_PROFILE_PATH: "./chrome-profile"
+        CHROME_OPTIONS: "$CHROME_OPTIONS"
         ALL_PROXY: "socks5://127.0.0.1:1080"
         PYTHONUNBUFFERED: 1
         TZ: 'Asia/Seoul'
