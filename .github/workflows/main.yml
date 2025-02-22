@@ -47,11 +47,10 @@ jobs:
     - name: Extract Chrome Profile
       run: |
         mkdir -p chrome-profile
-        unzip -o "밴드 백업/백업/_1.일단됨,크롬 폴더는 따로 커밋해야함/밴드/chrome_profile.zip" -d ./chrome-profile
+        unzip -o "chrome_profile.zip" -d ./chrome-profile
         
     - name: Run Auto Posting
-      run: |
-        python "밴드 백업/백업/_1.일단됨,크롬 폴더는 따로 커밋해야함/밴드/auto_band_action.py"
+      run: python auto_band_action.py
       env:
         CHROME_PROFILE_PATH: "./chrome-profile"
         ALL_PROXY: "socks5://127.0.0.1:1080"
