@@ -39,6 +39,38 @@ jobs:
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
       
+    - name: Check Profile Archive
+      run: |
+        if [ ! -f "chrome_profile.zip" ]; then
+          echo "chrome_profile.zip not found!"
+          exit 1
+        fi
+        echo "Found chrome_profile.zip"
+        
+    - name: Setup Chrome Profile
+      run: |
+        # 작업 디렉토리 생성
+        PROFILE_DIR="chrome-profile"
+        mkdir -p "$PROFILE_DIR"
+        
+        echo "Extracting profile to $PROFILE_DIR"
+        unzip -o chrome_profile.zip -d "$PROFILE_DIR"
+        
+        echo "Setting permissions..."
+        sudo chown -R $USER:$USER "$PROFILE_DIR"
+        chmod -R 755 "$PROFILE_DIR"
+        
+        if [ -f "$PROFILE_DIR/Default/Cookies" ]; then
+          chmod 644 "$PROFILE_DIR/Default/Cookies"
+        fi
+        
+        if [ -f "$PROFILE_DIR/Default/Login Data" ]; then
+          chmod 644 "$PROFILE_DIR/Default/Login Data"
+        fi
+        
+        echo "Profile setup completed at: $PROFILE_DIR"
+        ls -la "$PROFILE_DIR/Default"
+        
     - name: Clean and Setup Chrome Profile
       run: |
         echo "Chrome 프로필 초기화..."
@@ -92,6 +124,17 @@ jobs:
 
     - name: Run Auto Posting
       run: |
+        export CHROME_OPTIONS="
+          --user-data-dir=$(pwd)/chrome-profile
+          --profile-directory=Default
+          --no-sandbox
+          --disable-dev-shm-usage
+          --password-store=basic
+          --disable-features=TranslateUI
+          --disable-default-apps
+          --disable-extensions
+        "
+        
         # Chrome 옵션 최소화
         export CHROME_OPTIONS="
           --user-data-dir=${CHROME_PROFILE_DIR}
@@ -296,7 +339,7 @@ jobs:
         } | tee execution_summary.txt
 
       env:
-        CHROME_PROFILE_PATH: ${CHROME_PROFILE_DIR}
+        CHROME_PROFILE_PATH: "./chrome-profile"
         XDG_CONFIG_HOME: ${CHROME_PROFILE_DIR}  # Chrome 설정 디렉토리
         DISPLAY: :99  # 가상 디스플레이
         ALL_PROXY: "socks5://127.0.0.1:1080"
