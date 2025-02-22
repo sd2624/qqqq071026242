@@ -238,14 +238,13 @@ class BandAutoAction:
             print(f"현재 URL: {self.driver.current_url}")
             time.sleep(2)
 
-            # 이메일 입력 페이지 확인
+            # 이메일 입력
             print("\n3. 이메일 입력 페이지...")
             print(f"현재 URL: {self.driver.current_url}")
             email_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, 'input_email'))
             )
             
-            # config.json에서 이메일 가져오기
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 email = config.get('email', '')
@@ -264,7 +263,7 @@ class BandAutoAction:
             print(f"현재 URL: {self.driver.current_url}")
             time.sleep(2)
 
-            # 비밀번호 입력 페이지 확인
+            # 비밀번호 입력
             print("\n5. 비밀번호 입력 페이지...")
             print(f"현재 URL: {self.driver.current_url}")
             pw_input = WebDriverWait(self.driver, 10).until(
@@ -278,17 +277,31 @@ class BandAutoAction:
             
             # 로그인 버튼 클릭
             login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))  # 이 버튼을 클릭
             )
-            login_btn.click()
             print("\n6. 로그인 버튼 클릭")
-            print(f"현재 URL: {self.driver.current_url}")
+            login_btn.click()
+            
+            # 즉시 URL 체크 및 로깅
+            time.sleep(2)  # 짧은 대기 후 URL 확인
+            current_url = self.driver.current_url
+            print(f"\n로그인 버튼 클릭 직후 URL: {current_url}")
+            
+            # validation_welcome 페이지 체크
+            if 'validation_welcome' in current_url:
+                print("\n인증 페이지 발견!")
+                try:
+                    next_btn = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-confirm'))
+                    )
+                    next_btn.click()
+                    time.sleep(2)
+                    print(f"인증 페이지 처리 후 URL: {self.driver.current_url}")
+                except Exception as e:
+                    print(f"인증 페이지 처리 중 오류 (무시됨): {str(e)}")
 
             # 메인 페이지 로딩 대기
             print("\n7. 메인 페이지 로딩 대기 중...")
-            time.sleep(5)
-            print(f"최종 URL: {self.driver.current_url}")
-            
             if not self.wait_for_main_page():
                 raise Exception("메인 페이지 로딩 실패")
                 
