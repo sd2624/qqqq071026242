@@ -1,0 +1,53 @@
+name: Run Selenium Tests
+
+on:
+  push:
+    branches:
+      - main
+      
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y unzip shadowsocks-libev
+        pip install selenium requests beautifulsoup4 webdriver_manager
+        
+    - name: Setup VPN
+      run: |
+        echo '{
+          "server":"34.64.189.76",
+          "server_port":16978,
+          "password":"Nsy5l8wxxzHg4CXPKwEw6S",
+          "method":"chacha20-ietf-poly1305",
+          "local_address":"127.0.0.1",
+          "local_port":1080
+        }' > ss-config.json
+        ss-local -c ss-config.json -v &
+        sleep 5
+        curl --socks5 127.0.0.1:1080 http://ip-api.com/json
+        
+    - name: Setup ChromeDriver
+      uses: browser-actions/setup-chrome@latest
+      
+    - name: Extract Chrome Profile
+      run: |
+        cd 밴드
+        unzip chrome_profile.zip -d ./chrome-profile
+        
+    - name: Run Selenium Tests
+      run: |
+        python 밴드/auto_band_action.py
+      env:
+        CHROME_PROFILE_PATH: "밴드/chrome-profile"
+        ALL_PROXY: "socks5://127.0.0.1:1080"

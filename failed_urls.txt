@@ -1,0 +1,130 @@
+[글쓰기불가] https://band.us/band/72294594	건강을 물어봐 주세요(건물주)	2025-02-11 22:53:01	리더 승인이 필요하여 탈퇴
+[글쓰기불가] https://band.us/band/71068870	작은 목공소(꽃님공방)	2025-02-11 23:04:34	글쓰기 버튼을 찾을 수 없습니다
+[글쓰기불가] https://band.us/band/59361370	다육 인연	2025-02-12 00:27:26	글쓰기 버튼을 찾을 수 없습니다
+[글쓰기불가] https://band.us/band/71068870	작은 목공소(꽃님공방)	2025-02-13 11:06:09	글쓰기 버튼을 찾을 수 없습니다
+[글쓰기불가] https://band.us/band/64140408	주문도♡해루질♡갯벌체험	2025-02-13 15:08:09	리더 승인이 필요하여 탈퇴
+[글쓰기불가] https://band.us/band/70445209	전원주택,귀농,귀촌,귀도,토지	2025-02-14 00:58:38	밴드 페이지 로딩 실패
+[글쓰기불가] https://band.us/band/80334430	어디서나 풍경사진은 힐링	2025-02-14 19:40:58	Message: 
+Stacktrace:
+	GetHandleVerifier [0x010502D3+25139]
+	(No symbol) [0x00FDB284]
+	(No symbol) [0x00EB04A3]
+	(No symbol) [0x00EF8338]
+	(No symbol) [0x00EF868B]
+	(No symbol) [0x00F40F62]
+	(No symbol) [0x00F1CF84]
+	(No symbol) [0x00F3E6E1]
+	(No symbol) [0x00F1CD36]
+	(No symbol) [0x00EEBD29]
+	(No symbol) [0x00EED064]
+	GetHandleVerifier [0x0135B193+3215603]
+	GetHandleVerifier [0x0137230A+3310186]
+	GetHandleVerifier [0x0136C522+3286146]
+	GetHandleVerifier [0x010E9CD0+654384]
+	(No symbol) [0x00FE460D]
+	(No symbol) [0x00FE14F8]
+	(No symbol) [0x00FE1697]
+	(No symbol) [0x00FD3D70]
+	BaseThreadInitThunk [0x74E2FCC9+25]
+	RtlGetAppContainerNamedObjectPath [0x770082AE+286]
+	RtlGetAppContainerNamedObjectPath [0x7700827E+238]
+
+[글쓰기불가] https://band.us/band/72608465	더착한사과농장	2025-02-14 20:03:08	글쓰기 버튼을 찾을 수 없습니다
+[글쓰기불가] https://band.us/band/63695342	썰전	2025-02-14 21:02:42	Alert Text: 글 작성을 취소하시겠습니까?
+Message: unexpected alert open: {Alert text : 글 작성을 취소하시겠습니까?}
+  (Session info: chrome=133.0.6943.98)
+Stacktrace:
+	GetHandleVerifier [0x010502D3+25139]
+	(No symbol) [0x00FDB284]
+	(No symbol) [0x00EB04A3]
+	(No symbol) [0x00F3F0B7]
+	(No symbol) [0x00F1CD36]
+	(No symbol) [0x00EEBD29]
+	(No symbol) [0x00EED064]
+	GetHandleVerifier [0x0135B193+3215603]
+	GetHandleVerifier [0x0137230A+3310186]
+	GetHandleVerifier [0x0136C522+3286146]
+	GetHandleVerifier [0x010E9CD0+654384]
+	(No symbol) [0x00FE460D]
+	(No symbol) [0x00FE14F8]
+	(No symbol) [0x00FE1697]
+	(No symbol) [0x00FD3D70]
+	BaseThreadInitThunk [0x74E2FCC9+25]
+	RtlGetAppContainerNamedObjectPath [0x770082AE+286]
+	RtlGetAppContainerNamedObjectPath [0x7700827E+238]
+
+[글쓰기불가] https://band.us/band/58417797	영남공주(공장.주유소)	2025-02-14 21:41:01	Alert Text: 일시적인 오류입니다.
+Message: unexpected alert open: {Alert text : 일시적인 오류입니다.}
+  (Session info: chrome=133.0.6943.98)
+Stacktrace:
+	GetHandleVerifier [0x010502D3+25139]
+	(No symbol) [0x00FDB284]
+	(No symbol) [0x00EB04A3]
+	(No symbol) [0x00F3F0B7]
+	(No symbol) [0x00F1CD36]
+	(No symbol) [0x00EEBD29]
+	(No symbol) [0x00EED064]
+	GetHandleVerifier [0x0135B193+3215603]
+	GetHandleVerifier [0x0137230A+3310186]
+	GetHandleVerifier [0x0136C522+3286146]
+	GetHandleVerifier [0x010E9CD0+654384]
+	(No symbol) [0x00FE460D]
+	(No symbol) [0x00FE14F8]
+	(No symbol) [0x00FE1697]
+	(No symbol) [0x00FD3D70]
+	BaseThreadInitThunk [0x74E2FCC9+25]
+	RtlGetAppContainerNamedObjectPath [0x770082AE+286]
+	RtlGetAppContainerNamedObjectPath [0x7700827E+238]
+
+[글쓰기불가] https://band.us/band/55403284	거사모	2025-02-18 15:04:10	Message: invalid session id: session deleted as the browser has closed the connection
+from disconnected: not connected to DevTools
+  (Session info: chrome=133.0.6943.98)
+Stacktrace:
+	GetHandleVerifier [0x004A02D3+25139]
+	(No symbol) [0x0042B284]
+	(No symbol) [0x003004A3]
+	(No symbol) [0x002EFDE0]
+	(No symbol) [0x0030D8B2]
+	(No symbol) [0x00373D3F]
+	(No symbol) [0x0038DFC9]
+	(No symbol) [0x0036CD36]
+	(No symbol) [0x0033BD29]
+	(No symbol) [0x0033D064]
+	GetHandleVerifier [0x007AB193+3215603]
+	GetHandleVerifier [0x007C230A+3310186]
+	GetHandleVerifier [0x007BC522+3286146]
+	GetHandleVerifier [0x00539CD0+654384]
+	(No symbol) [0x0043460D]
+	(No symbol) [0x004314F8]
+	(No symbol) [0x00431697]
+	(No symbol) [0x00423D70]
+	BaseThreadInitThunk [0x76DFFCC9+25]
+	RtlGetAppContainerNamedObjectPath [0x771582AE+286]
+	RtlGetAppContainerNamedObjectPath [0x7715827E+238]
+
+[글쓰기불가] https://band.us/band/55403284	거사모	2025-02-18 15:16:21	Message: invalid session id: session deleted as the browser has closed the connection
+from disconnected: not connected to DevTools
+  (Session info: chrome=133.0.6943.98)
+Stacktrace:
+	GetHandleVerifier [0x004A02D3+25139]
+	(No symbol) [0x0042B284]
+	(No symbol) [0x003004A3]
+	(No symbol) [0x002EFDE0]
+	(No symbol) [0x0030D8B2]
+	(No symbol) [0x00373D3F]
+	(No symbol) [0x0038DFC9]
+	(No symbol) [0x0036CD36]
+	(No symbol) [0x0033BD29]
+	(No symbol) [0x0033D064]
+	GetHandleVerifier [0x007AB193+3215603]
+	GetHandleVerifier [0x007C230A+3310186]
+	GetHandleVerifier [0x007BC522+3286146]
+	GetHandleVerifier [0x00539CD0+654384]
+	(No symbol) [0x0043460D]
+	(No symbol) [0x004314F8]
+	(No symbol) [0x00431697]
+	(No symbol) [0x00423D70]
+	BaseThreadInitThunk [0x76DFFCC9+25]
+	RtlGetAppContainerNamedObjectPath [0x771582AE+286]
+	RtlGetAppContainerNamedObjectPath [0x7715827E+238]
+
