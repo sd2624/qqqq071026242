@@ -125,51 +125,65 @@ jobs:
 
     - name: Setup Chrome Profile
       run: |
-        # 프로필 디렉토리 설정
-        PROFILE_DIR="/tmp/chrome-profile-$GITHUB_RUN_ID"
+        # 고유한 프로필 디렉토리 설정
+        PROFILE_DIR="/tmp/chrome-profile-${GITHUB_RUN_ID}"
         echo "프로필 디렉토리: $PROFILE_DIR"
         
-        # 기존 프로필 정리 및 초기 설정
+        # 기존 프로필 완전 제거
         sudo rm -rf "$PROFILE_DIR"
         mkdir -p "$PROFILE_DIR/Default"
         
-        # 프로필 다운로드 및 압축 해제
-        echo "프로필 다운로드 중..."
-        wget -q https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip
-        
-        if [ ! -f "chrome_profile.zip" ]; then
-          echo "프로필 다운로드 실패"
+        # 프로필 압축 해제
+        echo "프로필 설정 중..."
+        unzip -o chrome_profile.zip -d "$PROFILE_DIR" || {
+          echo "프로필 압축 해제 실패"
           exit 1
-        fi
+        }
         
-        unzip -o chrome_profile.zip -d "$PROFILE_DIR"
-        
-        # 권한 및 소유권 설정
-        sudo chown -R $USER:$USER "$PROFILE_DIR"
+        # 권한 설정
+        sudo chown -R runner:docker "$PROFILE_DIR"
         chmod -R 755 "$PROFILE_DIR"
         
-        # 캐시 초기화
-        rm -rf "$PROFILE_DIR/Default/Cache"/*
-        mkdir -p "$PROFILE_DIR/Default/Cache"
+        # 초기 디렉토리 구조 설정
+        for dir in "Cache" "Local Storage" "Session Storage" "Network" "Extension State"; do
+          mkdir -p "$PROFILE_DIR/Default/$dir"
+          chmod 755 "$PROFILE_DIR/Default/$dir"
+        done
         
         # 환경 변수 설정
-        echo "CHROME_PROFILE_DIR=$PROFILE_DIR" >> $GITHUB_ENV
-        echo "CHROME_BIN=/usr/bin/google-chrome-stable" >> $GITHUB_ENV
+        {
+          echo "CHROME_PROFILE_DIR=$PROFILE_DIR"
+          echo "CHROME_BIN=/usr/bin/google-chrome-stable"
+        } >> $GITHUB_ENV
         
-        # 프로필 구조 확인
-        echo "프로필 구조 확인:"
+        echo "프로필 구조:"
         ls -la "$PROFILE_DIR/Default/"
+
+    - name: Configure Chrome Profile
+      run: |
+        PROFILE_DIR="${CHROME_PROFILE_DIR}"
         
-        # Chrome 초기 실행 (실행 옵션만 여기서 --no-sandbox 사용)
-        echo "Chrome 초기 실행 테스트..."
-        "$CHROME_BIN" \
-          --no-sandbox \
-          --user-data-dir="$PROFILE_DIR" \
-          --headless \
-          --disable-gpu \
-          --remote-debugging-port=9222 \
-          --disable-dev-shm-usage \
-          about:blank
+        # 필수 파일 확인
+        required_files=("Preferences" "Cookies" "Login Data")
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$PROFILE_DIR/Default/$file" ]; then
+            echo "생성: $file"
+            touch "$PROFILE_DIR/Default/$file"
+            chmod 644 "$PROFILE_DIR/Default/$file"
+          fi
+        done
+        
+        # 중요 디렉토리 권한 설정
+        for dir in "Cache" "Local Storage" "Session Storage" "Network"; do
+          dir_path="$PROFILE_DIR/Default/$dir"
+          if [ -d "$dir_path" ]; then
+            find "$dir_path" -type d -exec chmod 755 {} \;
+            find "$dir_path" -type f -exec chmod 644 {} \;
+          fi
+        done
+        
+        echo "프로필 구성 완료:"
+        ls -la "$PROFILE_DIR/Default/"
 
     - name: Check and Setup Required Directories
       run: |
