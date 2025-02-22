@@ -42,15 +42,40 @@ jobs:
     - name: Check Directory Structure
       run: |
         pwd
+        echo "현재 작업 디렉토리 구조:"
         ls -la
         
     - name: Extract Chrome Profile
       run: |
+        echo "Chrome 프로필 압축 해제 중..."
         mkdir -p chrome-profile
-        unzip -o "chrome_profile.zip" -d ./chrome-profile
+        unzip -o "chrome_profile.zip" -d ./chrome-profile || {
+          echo "chrome_profile.zip 파일을 찾을 수 없습니다."
+          echo "현재 폴더 내용:"
+          ls -la
+          exit 1
+        }
+        echo "Chrome 프로필 압축 해제 완료"
         
     - name: Run Auto Posting
-      run: python auto_band_action.py
+      run: |
+        echo "=== 밴드 자동 포스팅 시작 ==="
+        echo "1. VPN 상태 확인"
+        curl --socks5 127.0.0.1:1080 http://ip-api.com/json
+        
+        echo -e "\n2. 로그인 정보 확인"
+        if [ -d "./chrome-profile" ]; then
+          echo "Chrome 프로필 확인: O"
+          echo "프로필 폴더 크기:"
+          du -sh ./chrome-profile
+        else
+          echo "Chrome 프로필 확인: X"
+          exit 1
+        fi
+        
+        echo -e "\n3. 자동화 스크립트 실행"
+        python auto_band_action.py
       env:
         CHROME_PROFILE_PATH: "./chrome-profile"
         ALL_PROXY: "socks5://127.0.0.1:1080"
+        PYTHONUNBUFFERED: 1  # Python 로그 즉시 출력
