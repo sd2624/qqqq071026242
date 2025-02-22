@@ -164,6 +164,27 @@ class BandAutoAction:
             print(f"URL 이동 실패: {str(e)}")
             return False
 
+    def wait_for_main_page(self, timeout=30):
+        """메인 페이지 로딩 완료 대기"""
+        try:
+            print("\n메인 페이지 로딩 대기 중...")
+            # 피드 페이지의 특정 요소가 로드될 때까지 대기
+            WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.feed'))
+            )
+            
+            # 현재 URL이 메인 페이지인지 확인
+            current_url = self.driver.current_url
+            if 'band.us' not in current_url:
+                raise Exception(f"잘못된 페이지로 이동됨: {current_url}")
+                
+            print(f"메인 페이지 로딩 완료: {current_url}")
+            return True
+            
+        except Exception as e:
+            print(f"메인 페이지 로딩 실패: {str(e)}")
+            return False
+
     def login(self):
         try:
             print("\n============== 로그인 시작 ==============")
