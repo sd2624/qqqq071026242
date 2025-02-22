@@ -39,6 +39,33 @@ jobs:
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
+    - name: Install Chrome and ChromeDriver
+      run: |
+        # 안정적인 Chrome 버전 설치
+        wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo apt install ./google-chrome-stable_current_amd64.deb
+        rm google-chrome-stable_current_amd64.deb
+        
+        # 설치된 Chrome 버전 확인
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1-3)
+        echo "설치된 Chrome 버전: $CHROME_VERSION"
+        
+        # 호환되는 ChromeDriver 설치
+        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%%.*}")
+        echo "설치할 ChromeDriver 버전: $CHROMEDRIVER_VERSION"
+        
+        wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
+        unzip -o chromedriver_linux64.zip
+        sudo mv chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        rm chromedriver_linux64.zip
+        
+        # 버전 확인
+        echo "Chrome 버전:"
+        google-chrome --version
+        echo "ChromeDriver 버전:"
+        chromedriver --version
+
     - name: Install Specific Chrome Version
       run: |
         CHROME_VERSION="132.0.6263.0-1"
