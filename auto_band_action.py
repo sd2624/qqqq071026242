@@ -80,6 +80,75 @@ class BandAutoAction:
             print(f"Driver setup failed: {str(e)}")
             raise
 
+    def login(self):
+        try:
+            print("\n============== 로그인 시작 ==============")
+            print("1. 로그인 페이지 이동...")
+            self.driver.get('https://auth.band.us/login')
+            time.sleep(3)
+            
+            # 이메일 로그인 버튼 찾고 클릭
+            print("2. 이메일 로그인 버튼 찾는 중...")
+            email_login_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uButtonRound.-h56.-icoType.-email'))
+            )
+            email_login_btn.click()
+            print("   이메일 로그인 버튼 클릭 완료")
+            time.sleep(2)
+
+            # 이메일 입력
+            print("3. 이메일 입력...")
+            email_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'input_email'))
+            )
+            # config.json에서 이메일 가져오기
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                email = config.get('email', '')
+            
+            email_input.send_keys(email)
+            print(f"   이메일 입력 완료: {email}")
+            time.sleep(1)
+            
+            # 다음 버튼 클릭
+            email_next_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+            )
+            email_next_btn.click()
+            print("   다음 버튼 클릭 완료")
+            time.sleep(2)
+
+            # 비밀번호 입력
+            print("4. 비밀번호 입력...")
+            pw_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'pw'))
+            )
+            password = config.get('password', '')
+            pw_input.send_keys(password)
+            print("   비밀번호 입력 완료")
+            time.sleep(1)
+            
+            # 로그인 버튼 클릭
+            login_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+            )
+            login_btn.click()
+            print("   로그인 버튼 클릭 완료")
+
+            # 메인 페이지 로딩 대기
+            print("5. 메인 페이지 로딩 대기 중...")
+            if not self.wait_for_main_page():
+                raise Exception("메인 페이지 로딩 실패")
+                
+            print("로그인 성공!")
+            print("==========================================")
+            
+        except Exception as e:
+            print("\n============== 로그인 실패 ==============")
+            print(f"오류 내용: {str(e)}")
+            print("========================================")
+            raise
+
     def get_band_list(self):
         """밴드 목록 가져오기"""
         try:
@@ -168,11 +237,15 @@ class BandAutoAction:
             print("======================================")
             raise
 
-    def post_to_band(self, band_info, post_url):
+    def post_to_band(self, band_info, post_url, url_number):
         """밴드에 포스팅"""
         try:
-            print(f"\n포스팅 시도: {band_info['name']}")
-            print(f"URL: {post_url}")
+            print("\n" + "="*50)
+            print(f"현재 작업 중인 URL #{url_number}")
+            print(f"URL 주소: {post_url}")
+            print(f"포스팅 밴드: {band_info['name']}")
+            print(f"밴드 주소: {band_info['url']}")
+            print("="*50 + "\n")
             
             # 밴드로 이동
             self.driver.get(band_info['url'])
@@ -276,33 +349,47 @@ def main():
         
         # 각 URL 순차적으로 처리 (1시간 간격)
         for url_idx, (url_num, post_url) in enumerate(urls, 1):
-            print(f"\n============== URL {url_num} 포스팅 시작 ==============")
-            print(f"포스팅 URL: {post_url}")
+            print(f"\n{'='*60}")
+            print(f"URL {url_num}/{len(urls)} 포스팅 시작")
+            print(f"현재 URL: {post_url}")
+            print(f"{'='*60}\n")
             success_count = 0
             
             # 해당 URL로 모든 밴드에 포스팅
             for band_idx, band in enumerate(bands, 1):
-                print(f"\n[{band_idx}/{len(bands)}] {band['name']} 밴드 작성 시작")
-                if bot.post_to_band(band, post_url):
+                if bot.post_to_band(band, post_url, url_num):
                     success_count += 1
                 
                 # 다음 밴드로 이동 전 대기 (4분)
                 if band_idx < len(bands):
+                    print(f"\n현재 진행 상황:")
+                    print(f"- URL {url_num}/{len(urls)}")
+                    print(f"- 현재 URL: {post_url}")
+                    print(f"- 밴드 진행: {band_idx}/{len(bands)}")
+                    print(f"- 성공: {success_count}회")
                     print("다음 밴드로 이동 전 4분 대기...")
                     time.sleep(240)
             
-            print(f"\nURL {url_num} 포스팅 결과: 성공 {success_count}회")
+            print(f"\nURL {url_num} 포스팅 통계:")
+            print(f"- 작업한 URL: {post_url}")
+            print(f"- 총 시도: {len(bands)}회")
+            print(f"- 성공: {success_count}회")
+            print(f"- 실패: {len(bands) - success_count}회")
             
             # 다음 URL로 넘어가기 전에 1시간 대기
             if url_idx < len(urls):
+                next_url = urls[url_idx][1]
                 wait_time = 3600  # 1시간 = 3600초
-                print(f"\n다음 URL로 넘어가기 전 1시간 대기 시작...")
+                print(f"\n다음 URL 정보:")
+                print(f"- 다음 URL 번호: {urls[url_idx][0]}")
+                print(f"- 다음 URL 주소: {next_url}")
+                print(f"- 대기 시작: 1시간")
                 
                 # 1분 단위로 남은 시간 표시
                 while wait_time > 0:
                     hours = wait_time // 3600
                     minutes = (wait_time % 3600) // 60
-                    print(f"남은 시간: {hours}시간 {minutes}분")
+                    print(f"남은 시간: {hours}시간 {minutes}분 | 다음 URL: {next_url}")
                     time.sleep(60)
                     wait_time -= 60
         
