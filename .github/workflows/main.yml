@@ -160,16 +160,7 @@ jobs:
         echo "프로필 구조 확인:"
         ls -la "$PROFILE_DIR/Default/"
         
-        # Chrome 초기 실행 (실행 옵션만 여기서 --no-sandbox 사용)
-        echo "Chrome 초기 실행 테스트..."
-        "$CHROME_BIN" \
-          --no-sandbox \
-          --user-data-dir="$PROFILE_DIR" \
-          --headless \
-          --disable-gpu \
-          --remote-debugging-port=9222 \
-          --disable-dev-shm-usage \
-          about:blank
+
 
     - name: Check and Setup Required Directories
       run: |
