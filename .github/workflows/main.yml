@@ -390,19 +390,21 @@ jobs:
         TZ: "Asia/Seoul"
         PROXYCHAINS_CONF_FILE: /etc/proxychains4.conf
       run: |
-        # Shadowsocks 서비스 상태 확인
-        sudo systemctl status shadowsocks-libev-local@config --no-pager || true
-        
-        # 프록시 연결 테스트
-        curl -v -x socks5h://127.0.0.1:1080 http://ip-api.com/json || true
+        # ProxyChains 설정 확인
+        cat /etc/proxychains4.conf
         
         # ProxyChains 디버그 모드로 실행
         sudo bash -c 'echo "debug_level 1" >> /etc/proxychains4.conf'
         sudo bash -c 'echo "chain_len = 1" >> /etc/proxychains4.conf'
         sudo chmod 644 /etc/proxychains4.conf
         
+        # Shadowsocks 서비스 상태 확인
+        sudo systemctl status shadowsocks-libev-local@config --no-pager || true
+        
+        # 프록시 연결 테스트
+        proxychains4 curl -v -x socks5h://127.0.0.1:1080 http://ip-api.com/json || true
+        
         # 직접 파이썬 실행
-        PYTHONPATH=/opt/hostedtoolcache/Python/3.12.9/x64/lib/python3.12/site-packages \
         LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libproxychains.so.4 \
         PROXYCHAINS_CONF_FILE=/etc/proxychains4.conf \
         python3 auto_band_action.py
