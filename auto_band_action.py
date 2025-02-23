@@ -26,113 +26,74 @@ class BandAutoAction:
     def setup_vpn(self):
         """한국 VPN 연결 확인"""
         try:
-            # GitHub Actions에서 설정된 프록시 사용
             proxies = {
                 'http': 'socks5h://127.0.0.1:1080',
                 'https': 'socks5h://127.0.0.1:1080'
-            } if os.getenv('GITHUB_ACTIONS') else None
+            }
             
-            response = requests.get("http://ip-api.com/json", proxies=proxies)
-            ip_info = response.json()
+            # VPN 연결 상태 확인 (최대 3회 시도)
+            for attempt in range(3):
+                try:
+                    response = requests.get("http://ip-api.com/json", 
+                                         proxies=proxies, 
+                                         timeout=10)
+                    ip_info = response.json()
+                    
+                    print(f"\n[시도 {attempt + 1}] VPN 상태:")
+                    print(f"IP: {ip_info.get('query')}")
+                    print(f"국가: {ip_info.get('country')}")
+                    print(f"도시: {ip_info.get('city')}")
+                    
+                    if ip_info.get('country') == 'South Korea':
+                        print("✅ 한국 VPN 연결 성공!")
+                        return True
+                        
+                    print("⚠️ 한국 IP가 아님, 재시도...")
+                    time.sleep(5)
+                    
+                except Exception as e:
+                    print(f"VPN 체크 실패 ({attempt + 1}): {str(e)}")
+                    time.sleep(5)
+                    
+            raise Exception("한국 VPN 연결 실패")
             
-            print("\n============== VPN 상태 ==============")
-            print(f"현재 IP: {ip_info.get('query')}")
-            print(f"국가: {ip_info.get('country')}")
-            print(f"지역: {ip_info.get('regionName')}")
-            print(f"도시: {ip_info.get('city')}")
-            print(f"ISP: {ip_info.get('isp')}")
-            print("=====================================\n")
-            
-            if ip_info.get('country') != 'South Korea':
-                raise Exception("한국 IP가 아닙니다!")
-                
         except Exception as e:
-            print(f"VPN 설정 실패: {str(e)}")
+            print(f"VPN 설정 오류: {str(e)}")
             raise
 
     def setup_driver(self):
         try:
             options = Options()
             
-            # GitHub Actions 환경인 경우
+            # 프록시 설정
+            options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
+            
+            # 기본 옵션
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--disable-software-rasterizer')
+            options.add_argument('--password-store=basic')
+            
             if os.getenv('GITHUB_ACTIONS'):
-                # 기존 압축된 프로필 사용
-                profile_dir = "chrome-profile"
-                
-                # 프로필 디렉토리가 없으면 생성
-                if not os.path.exists(profile_dir):
-                    os.makedirs(f"{profile_dir}/Default", exist_ok=True)
-                
-                # 압축된 프로필 해제 (기존 파일 덮어쓰기)
-                if os.path.exists("chrome_profile.zip"):
-                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
-                    
-                # 권한 설정
-                os.system(f"chmod -R 777 {profile_dir}")
-                
-                # Chrome 옵션 설정
-                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-                options.add_argument('--profile-directory=Default')
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--password-store=basic')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
-
-            else:
-                # 로컬 환경에서는 기존 설정 사용
-                timestamp = int(time.time() * 1000)
-                profile_dir = f"chrome_profile_{timestamp}"
-                
-                # 기존 프로필 디렉토리 제거
-                if os.path.exists(profile_dir):
-                    shutil.rmtree(profile_dir)
-                time.sleep(1)
-                
-                # 새 프로필 디렉토리 생성
-                os.makedirs(profile_dir, exist_ok=True)
-                
+                profile_dir = os.getenv('CHROME_PROFILE_DIR', 'chrome-profile')
                 options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
                 options.add_argument('--profile-directory=Default')
                 
-                # 기본 옵션
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--disable-gpu')
-                options.add_argument('--disable-software-rasterizer')
-                
-                # 프로세스 분리 비활성화
-                options.add_argument('--disable-features=IsolateOrigins,site-per-process')
-                options.add_argument('--disable-site-isolation-trials')
-                
-                # 기타 필요한 설정
-                options.add_argument('--no-first-run')
-                options.add_argument('--no-default-browser-check')
-                options.add_argument('--password-store=basic')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
-
+            # 자동화 감지 방지
+            options.add_experimental_option('excludeSwitches', ['enable-automation'])
+            options.add_experimental_option('useAutomationExtension', False)
+            
             # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
-            # 초기 페이지 로드 테스트
+            # 초기 테스트
             self.driver.get('about:blank')
             time.sleep(2)
             
-            print(f"Chrome driver initialized with profile: {profile_dir}")
+            print(f"Chrome driver initialized with profile")
             return True
             
         except Exception as e:
@@ -532,7 +493,7 @@ class BandAutoAction:
                     preview = WebDriverWait(self.driver, 1).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
                     )
-                    if preview.is_displayed():
+                    if (preview and preview.is_displayed()):
                         print("✅ 프리뷰 발견")
                         preview_found = True
                         break
