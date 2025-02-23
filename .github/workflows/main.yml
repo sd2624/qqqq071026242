@@ -42,10 +42,27 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        # xsel과 xclip 추가
-        sudo apt-get install -y unzip shadowsocks-libev curl wget xvfb xsel xclip
-        # pyperclip 추가
+        # proxychains-ng 추가
+        sudo apt-get install -y unzip shadowsocks-libev curl wget xvfb xsel xclip proxychains-ng
         pip install selenium requests beautifulsoup4 webdriver_manager pyperclip
+
+    - name: Configure ProxyChains
+      run: |
+        # ProxyChains 설정
+        sudo tee /etc/proxychains4.conf > /dev/null << EOF
+        strict_chain
+        quiet_mode
+        proxy_dns
+        remote_dns_subnet 224
+        tcp_read_time_out 15000
+        tcp_connect_time_out 8000
+        [ProxyList]
+        socks5 127.0.0.1 1080
+        EOF
+        
+        # ProxyChains 테스트
+        proxychains4 curl -s https://api.ipify.org
+        proxychains4 curl -s http://ip-api.com/json
 
     - name: Setup Shadowsocks
       run: |
@@ -373,13 +390,17 @@ jobs:
         TZ: "Asia/Seoul"
         PROXYCHAINS_CONF_FILE: /etc/proxychains4.conf
       run: |
-        # Chrome 옵션에 프록시 설정 추가
+        # Chrome 옵션 설정
         export CHROME_OPTIONS="${CHROME_OPTS} \
           --proxy-server=socks5://127.0.0.1:1080 \
           --host-resolver-rules='MAP * ~NOTFOUND , EXCLUDE 127.0.0.1'"
         
-        # ProxyChains로 실행
-        proxychains4 -f /etc/proxychains4.conf python auto_band_action.py
+        # ProxyChains 경로 확인 및 실행
+        which proxychains4
+        sudo chmod 755 /etc/proxychains4.conf
+        
+        # 실행
+        sudo -E proxychains4 -f /etc/proxychains4.conf python3 auto_band_action.py
 
         echo -e "\n\033[1;36m=== 밴드 자동 포스팅 시작 ===\033[0m"
         echo -e "\033[1;33m현재 시각: $(date '+%Y-%m-%d %H:%M:%S')\033[0m"
