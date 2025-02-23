@@ -110,6 +110,26 @@ jobs:
         # 설치 확인
         google-chrome --version
         which google-chrome
+        
+        # Chrome 실행 옵션 추가
+        echo "CHROME_OPTS=\
+          --disable-web-security \
+          --use-fake-ui-for-media-stream \
+          --disable-features=IsolateOrigins,site-per-process \
+          --ignore-certificate-errors \
+          --disable-site-isolation-trials \
+          --no-sandbox \
+          --disable-dev-shm-usage \
+          --disable-gpu \
+          --disable-software-rasterizer \
+          --disable-background-networking \
+          --disable-default-apps \
+          --disable-extensions \
+          --disable-sync \
+          --disable-translate \
+          --metrics-recording-only \
+          --mute-audio \
+          --no-first-run" >> $GITHUB_ENV
 
     - name: Configure Network Settings
       run: |
@@ -351,20 +371,15 @@ jobs:
         CHROME_REMOTE_DEBUGGING_PORT: "9222"
         PYTHONUNBUFFERED: 1
         TZ: "Asia/Seoul"
+        PROXYCHAINS_CONF_FILE: /etc/proxychains4.conf
       run: |
         # Chrome 옵션에 프록시 설정 추가
-        export CHROME_OPTIONS="
-          --user-data-dir=${CHROME_PROFILE_DIR}
-          --profile-directory=Default
-          --no-sandbox
-          --disable-dev-shm-usage
-          --password-store=basic
-          --disable-gpu
-          --proxy-server=socks5://127.0.0.1:1080
-        "
+        export CHROME_OPTIONS="${CHROME_OPTS} \
+          --proxy-server=socks5://127.0.0.1:1080 \
+          --host-resolver-rules='MAP * ~NOTFOUND , EXCLUDE 127.0.0.1'"
         
-        # 스크립트 실행
-        PYTHONUNBUFFERED=1 python auto_band_action.py
+        # ProxyChains로 실행
+        proxychains4 -f /etc/proxychains4.conf python auto_band_action.py
 
         echo -e "\n\033[1;36m=== 밴드 자동 포스팅 시작 ===\033[0m"
         echo -e "\033[1;33m현재 시각: $(date '+%Y-%m-%d %H:%M:%S')\033[0m"
@@ -550,4 +565,56 @@ jobs:
           tail -n 20 band_auto.log
           
         } | tee execution_summary.txt
+
+    - name: Configure Network Settings
+      run: |
+        # 한국 DNS 서버 설정
+        echo "nameserver 168.126.63.1" | sudo tee /etc/resolv.conf > /dev/null
+        echo "nameserver 168.126.63.2" | sudo tee -a /etc/resolv.conf > /dev/null
+        
+        # 네트워크 버퍼 및 타임아웃 최적화
+        sudo sysctl -w \
+          net.core.rmem_max=16777216 \
+          net.core.wmem_max=16777216 \
+          net.ipv4.tcp_rmem='4096 87380 16777216' \
+          net.ipv4.tcp_wmem='4096 65536 16777216' \
+          net.ipv4.tcp_fin_timeout=30 \
+          net.ipv4.tcp_keepalive_time=120 \
+          net.ipv4.tcp_keepalive_intvl=30 \
+          net.ipv4.tcp_keepalive_probes=3
+
+    - name: Setup Shadowsocks with ProxyChains
+      run: |
+        # ProxyChains 설치
+        sudo apt-get install -y proxychains4
+        
+        # ProxyChains 설정
+        sudo tee /etc/proxychains4.conf > /dev/null << EOF
+        strict_chain
+        proxy_dns
+        remote_dns_subnet 224
+        tcp_read_time_out 15000
+        tcp_connect_time_out 8000
+        [ProxyList]
+        socks5 127.0.0.1 1080
+        EOF
+        
+        # Shadowsocks 설정
+        sudo tee /etc/shadowsocks-libev/config.json > /dev/null << EOF
+        {
+          "server": "34.64.189.76",
+          "server_port": 16978,
+          "password": "Nsy5l8wxxzHg4CXPKwEw6S",
+          "method": "chacha20-ietf-poly1305",
+          "mode": "tcp_and_udp",
+          "local_address": "127.0.0.1",
+          "local_port": 1080,
+          "fast_open": true,
+          "no_delay": true,
+          "reuse_port": true,
+          "mptcp": true,
+          "mtu": 1500,
+          "timeout": 300
+        }
+        EOF
 
