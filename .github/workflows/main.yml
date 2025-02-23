@@ -22,27 +22,35 @@ jobs:
         sudo apt-get install -y unzip shadowsocks-libev proxychains4
         pip install selenium requests beautifulsoup4 webdriver_manager
 
-    - name: Setup Shadowsocks and VPN
+    - name: Setup Shadowsocks
       run: |
         # Shadowsocks 설정 파일 생성
-        mkdir -p shadowsocks
-        cat > shadowsocks/config.json << EOF
+        cat <<EOF > shadowsocks-config.json
         {
           "server": "34.64.189.76",
           "server_port": 16978,
           "password": "Nsy5l8wxxzHg4CXPKwEw6S",
           "method": "chacha20-ietf-poly1305",
-          "local_address": "127.0.0.1",
-          "local_port": 1080,
-          "timeout": 300,
-          "fast_open": true
+          "mode": "tcp_and_udp",
+          "fast_open": true,
+          "plugin": "",
+          "plugin_opts": ""
         }
         EOF
         
         # Shadowsocks 클라이언트 실행
-        nohup sslocal -c shadowsocks/config.json --udp-relay -l 1080 &
+        nohup sslocal -c shadowsocks-config.json -l 1080 --udp-relay &
         sleep 5
         
+        # 실행 확인
+        ps aux | grep sslocal
+        netstat -tulpn | grep 1080
+        
+        # 프록시 연결 테스트
+        curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json || true
+
+    - name: Configure Network
+      run: |
         # 프록시 환경변수 설정
         export HTTPS_PROXY=socks5h://127.0.0.1:1080
         export HTTP_PROXY=socks5h://127.0.0.1:1080
@@ -52,10 +60,7 @@ jobs:
         # 한국 DNS 설정
         echo "nameserver 168.126.63.1" | sudo tee /etc/resolv.conf > /dev/null
         echo "nameserver 168.126.63.2" | sudo tee -a /etc/resolv.conf > /dev/null
-        
-        # 연결 테스트
-        curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json
-        
+
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
