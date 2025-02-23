@@ -311,30 +311,47 @@ class BandAutoAction:
                 print("VPN 종료 완료")
                 time.sleep(2)
                 
-                # 프록시 설정만 제거 (기존 드라이버 유지)
+                # 새로운 Chrome 옵션 생성 (프록시 없음)
                 print("프록시 설정 제거 중...")
-                self.driver.execute_cdp_cmd('Network.enable', {})
-                self.driver.execute_cdp_cmd('Network.emulateNetworkConditions', {
-                    'offline': False,
-                    'latency': 0,
-                    'downloadThroughput': -1,
-                    'uploadThroughput': -1
-                })
+                new_options = Options()
+                new_options.add_argument('--no-sandbox')
+                new_options.add_argument('--disable-dev-shm-usage')
+                new_options.add_argument('--disable-gpu')
+                if os.getenv('GITHUB_ACTIONS'):
+                    profile_dir = os.getenv('CHROME_PROFILE_DIR', 'chrome-profile')
+                    new_options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
+                    new_options.add_argument('--profile-directory=Default')
                 
-                # 기존 페이지에서 프록시 설정 제거
-                self.driver.execute_script("""
-                    navigator.connection = navigator.connection || {};
-                    navigator.connection.type = 'ethernet';
-                    navigator.connection.downlink = 10;
-                    navigator.connection.rtt = 50;
-                """)
+                # 기존 세션 쿠키 저장
+                cookies = self.driver.get_cookies()
                 
-                # 프록시 제거 후 현재 페이지 새로고침
-                print("페이지 새로고침...")
-                self.driver.refresh()
+                # 기존 드라이버 종료
+                old_driver = self.driver
+                self.driver = webdriver.Chrome(options=new_options)
+                self.driver.set_page_load_timeout(30)
+                
+                # 밴드 페이지로 이동
+                self.driver.get('https://band.us')
+                time.sleep(2)
+                
+                # 저장된 쿠키 복원
+                for cookie in cookies:
+                    try:
+                        self.driver.add_cookie(cookie)
+                    except:
+                        continue
+                
+                # 피드 페이지로 이동
+                print("새로운 세션으로 이동 중...")
+                self.driver.get('https://band.us/feed')
                 time.sleep(3)
-                print("프록시 설정 제거 완료")
                 
+                # 기존 드라이버 종료
+                try:
+                    old_driver.quit()
+                except:
+                    pass
+                    
                 return True
                 
             except Exception as e:
