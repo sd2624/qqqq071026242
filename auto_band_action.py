@@ -416,9 +416,14 @@ class BandAutoAction:
             
             # VPN 일시 중지
             print("VPN 일시 중지...")
-            subprocess.run(['taskkill', '/F', '/IM', 'v2ray.exe'], 
-                          stdout=subprocess.DEVNULL, 
-                          stderr=subprocess.DEVNULL)
+            if os.getenv('GITHUB_ACTIONS'):
+                subprocess.run(['./vpn-control.sh', 'stop'], 
+                             stdout=subprocess.DEVNULL, 
+                             stderr=subprocess.DEVNULL)
+            else:
+                subprocess.run(['taskkill', '/F', '/IM', 'v2ray.exe'], 
+                             stdout=subprocess.DEVNULL, 
+                             stderr=subprocess.DEVNULL)
             time.sleep(2)
             
             # 에디터 찾기
@@ -494,9 +499,14 @@ class BandAutoAction:
             
             # VPN 재시작
             print("VPN 재시작...")
-            subprocess.Popen(['v2ray.exe', 'run', '-c', 'config.json'],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL)
+            if os.getenv('GITHUB_ACTIONS'):
+                subprocess.run(['./vpn-control.sh', 'start'],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+            else:
+                subprocess.Popen(['v2ray.exe', 'run', '-c', 'config.json'],
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
             time.sleep(5)  # VPN 연결 대기
             
             # VPN 재연결 확인
@@ -608,9 +618,14 @@ class BandAutoAction:
         except Exception as e:
             print(f"포스팅 실패: {str(e)}")
             # VPN이 꺼져있는 상태라면 재시작
-            subprocess.Popen(['v2ray.exe', 'run', '-c', 'config.json'],
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL)
+            if os.getenv('GITHUB_ACTIONS'):
+                subprocess.run(['./vpn-control.sh', 'start'],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+            else:
+                subprocess.Popen(['v2ray.exe', 'run', '-c', 'config.json'],
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
             time.sleep(5)
             self.setup_vpn()
             return False
