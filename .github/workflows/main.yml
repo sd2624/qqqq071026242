@@ -19,10 +19,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y unzip shadowsocks-libev proxychains4
+        sudo apt-get install -y unzip
         pip install selenium requests beautifulsoup4 webdriver_manager
+        pip install git+https://github.com/shadowsocks/shadowsocks.git
 
-    - name: Setup Shadowsocks
+    - name: Setup Python Shadowsocks
       run: |
         # Shadowsocks 설정 파일 생성
         cat <<EOF > shadowsocks-config.json
@@ -44,22 +45,19 @@ jobs:
         
         # 실행 확인
         ps aux | grep sslocal
-        netstat -tulpn | grep 1080
         
-        # 프록시 연결 테스트
-        curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json || true
-
-    - name: Configure Network
-      run: |
+        # 한국 DNS 설정
+        echo "nameserver 168.126.63.1" | sudo tee /etc/resolv.conf > /dev/null
+        echo "nameserver 168.126.63.2" | sudo tee -a /etc/resolv.conf > /dev/null
+        
         # 프록시 환경변수 설정
         export HTTPS_PROXY=socks5h://127.0.0.1:1080
         export HTTP_PROXY=socks5h://127.0.0.1:1080
         echo "HTTPS_PROXY=socks5h://127.0.0.1:1080" >> $GITHUB_ENV
         echo "HTTP_PROXY=socks5h://127.0.0.1:1080" >> $GITHUB_ENV
         
-        # 한국 DNS 설정
-        echo "nameserver 168.126.63.1" | sudo tee /etc/resolv.conf > /dev/null
-        echo "nameserver 168.126.63.2" | sudo tee -a /etc/resolv.conf > /dev/null
+        # 연결 테스트
+        curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json || true
 
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
