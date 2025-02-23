@@ -55,36 +55,21 @@ class BandAutoAction:
         try:
             options = Options()
             
-            # 기본 옵션 추가
-            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--no-sandbox")
+            # Chrome 프로필 디렉토리 설정
+            profile_dir = os.path.join(self.script_dir, "chrome-profile")
             
-            # WebRTC 활성화 및 미디어 스트림 설정
-            options.add_argument("--use-fake-ui-for-media-stream")
-            options.add_argument("--use-fake-device-for-media-stream")
+            # 프로필 디렉토리 초기화
+            if os.path.exists(profile_dir):
+                try:
+                    shutil.rmtree(profile_dir)
+                except:
+                    print("기존 프로필 삭제 실패 (무시)")
+            time.sleep(1)
             
-            # 프록시 설정
-            if os.getenv('GITHUB_ACTIONS'):
-                # GitHub Actions에서는 Shadowsocks 프록시 사용
-                options.add_argument("--proxy-server=socks5://127.0.0.1:1080")
-            else:
-                # 로컬 환경에서는 프록시 자동 감지
-                options.add_argument("--proxy-pac-url=http://127.0.0.1:1080/proxy.pac")
-                options.add_argument("--proxy-auto-detect")
+            # 새 프로필 디렉토리 생성
+            os.makedirs(f"{profile_dir}/Default", exist_ok=True)
             
-            # 프록시체인 설정 추가
-            os.environ['LD_PRELOAD'] = '/usr/lib/libproxychains.so.3'
-            
-            # 크롬 프로필 설정 (모든 환경에서 동일하게 적용)
-            profile_dir = "chrome-profile"
-            
-            # 프로필 디렉토리가 없으면 생성
-            if not os.path.exists(profile_dir):
-                os.makedirs(f"{profile_dir}/Default", exist_ok=True)
-            
-            # 압축된 프로필 해제
+            # chrome_profile.zip 압축 해제
             if os.path.exists("chrome_profile.zip"):
                 print("✅ 크롬 프로필 압축 해제 시작...")
                 if os.name == 'nt':  # Windows
@@ -92,36 +77,58 @@ class BandAutoAction:
                 else:  # Linux/Mac
                     os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
                 print("✅ 크롬 프로필 압축 해제 완료")
+                
+                # 권한 설정
+                if os.name != 'nt':
+                    os.system(f"chmod -R 777 {profile_dir}")
             else:
                 print("⚠️ chrome_profile.zip 파일이 없습니다!")
             
-            # 프로필 옵션 설정
-            options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-            options.add_argument('--profile-directory=Default')
-            
-            # 자동화 감지 방지
-            options.add_experimental_option('excludeSwitches', ['enable-automation'])
-            options.add_experimental_option('useAutomationExtension', False)
+            # 기본 Chrome 옵션 설정
+            options.add_argument(f"--user-data-dir={os.path.abspath(profile_dir)}")
+            options.add_argument("--profile-directory=Default")
+            options.add_argument("--password-store=basic")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-web-security")
             
             # Headless 모드 설정 (GitHub Actions에서만)
             if os.getenv('GITHUB_ACTIONS'):
                 options.add_argument("--headless=new")
-
+            
+            # 자동화 감지 방지
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option("useAutomationExtension", False)
+            
+            # 프록시 설정
+            if os.getenv('GITHUB_ACTIONS'):
+                options.add_argument("--proxy-server=socks5://127.0.0.1:1080")
+            
             # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
-            # 자동화 감지 방지를 위한 추가 JavaScript 실행
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            # 자동화 감지 방지를 위한 JavaScript 실행
+            self.driver.execute_script("""
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+                window.chrome = { runtime: {} };
+            """)
             
-            # WebRTC 설정
-            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
-                'source': '''
-                    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
-                        value: () => new Promise((resolve) => { resolve(true); })
-                    });
-                '''
-            })
+            # 기존 쿠키 복원
+            try:
+                cookies_file = os.path.join(profile_dir, "Default", "Cookies")
+                if os.path.exists(cookies_file):
+                    print("✅ 기존 쿠키 파일 발견")
+                else:
+                    print("⚠️ 쿠키 파일을 찾을 수 없습니다")
+            except:
+                print("⚠️ 쿠키 확인 실패 (무시)")
+            
+            # 초기 페이지 로드 테스트
+            self.driver.get("about:blank")
+            time.sleep(2)
             
             print(f"✅ Chrome driver initialized with profile: {profile_dir}")
             return True
@@ -713,9 +720,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
