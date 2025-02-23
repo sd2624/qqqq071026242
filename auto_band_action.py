@@ -414,6 +414,13 @@ class BandAutoAction:
             write_btn.click()
             time.sleep(3)
             
+            # VPN 일시 중지
+            print("VPN 일시 중지...")
+            subprocess.run(['taskkill', '/F', '/IM', 'v2ray.exe'], 
+                          stdout=subprocess.DEVNULL, 
+                          stderr=subprocess.DEVNULL)
+            time.sleep(2)
+            
             # 에디터 찾기
             print("에디터 찾는 중...")
             editor_selectors = [
@@ -480,7 +487,20 @@ class BandAutoAction:
             print(f"URL 입력 시작: {post_url}")
             editor.send_keys(post_url)
             print("URL 입력 완료")
-            time.sleep(5)  # URL 입력 후 대기
+            
+            # URL 입력 후 10초 대기
+            print("프리뷰 로딩을 위한 대기 중...")
+            time.sleep(10)
+            
+            # VPN 재시작
+            print("VPN 재시작...")
+            subprocess.Popen(['v2ray.exe', 'run', '-c', 'config.json'],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+            time.sleep(5)  # VPN 연결 대기
+            
+            # VPN 재연결 확인
+            self.setup_vpn()
             
             # 프리뷰 로딩 대기
             print("\n프리뷰 로딩 대기 중...")
@@ -587,6 +607,12 @@ class BandAutoAction:
                 
         except Exception as e:
             print(f"포스팅 실패: {str(e)}")
+            # VPN이 꺼져있는 상태라면 재시작
+            subprocess.Popen(['v2ray.exe', 'run', '-c', 'config.json'],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+            time.sleep(5)
+            self.setup_vpn()
             return False
 
     def cleanup(self):
