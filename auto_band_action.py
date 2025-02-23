@@ -17,6 +17,7 @@ class BandAutoAction:
         self.config_path = os.path.join(self.script_dir, 'config.json')
         self.bands_file = os.path.join(self.script_dir, 'band_urls.json')
         self.driver = None  # driver 초기화 추가
+        self.original_options = None  # Chrome 옵션 저장용 변수 추가
         self.setup_vpn()
         
         # driver 설정 실패 시 예외 처리 추가
@@ -124,6 +125,9 @@ class BandAutoAction:
                 options.add_experimental_option('excludeSwitches', ['enable-automation'])
                 options.add_experimental_option('useAutomationExtension', False)
 
+            # 프록시 설정을 나중에 제거할 수 있도록 옵션 저장
+            self.original_options = options
+            
             # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
@@ -311,41 +315,46 @@ class BandAutoAction:
                 print("VPN 종료 완료")
                 time.sleep(2)
                 
-                # 프록시 설정만 제거 (기존 드라이버 유지)
+                # 프록시 설정 제거
                 print("프록시 설정 제거 중...")
                 
-                # CDP를 통한 네트워크 설정 초기화
-                self.driver.execute_cdp_cmd('Network.enable', {})
-                self.driver.execute_cdp_cmd('Network.setBypassServiceWorker', {'bypass': True})
-                self.driver.execute_cdp_cmd('Network.emulateNetworkConditions', {
-                    'offline': False,
-                    'latency': 0,
-                    'downloadThroughput': -1,
-                    'uploadThroughput': -1
-                })
+                # 1. Chrome 옵션에서 프록시 제거
+                if self.original_options:
+                    new_options = Options()
+                    # 프록시 관련 옵션을 제외한 나머지 옵션 복사
+                    for arg in self.original_options.arguments:
+                        if not arg.startswith('--proxy'):
+                            new_options.add_argument(arg)
+                            
+                    # 새 드라이버 생성
+                    old_driver = self.driver
+                    cookies = old_driver.get_cookies()
+                    
+                    self.driver = webdriver.Chrome(options=new_options)
+                    self.driver.set_page_load_timeout(30)
+                    
+                    # 밴드 페이지로 이동
+                    self.driver.get('https://band.us')
+                    time.sleep(2)
+                    
+                    # 쿠키 복원
+                    for cookie in cookies:
+                        try:
+                            self.driver.add_cookie(cookie)
+                        except:
+                            continue
+                            
+                    # 이전 드라이버 종료
+                    try:
+                        old_driver.quit()
+                    except:
+                        pass
+
+                print("프록시 설정 제거 완료")
                 
-                # 새로운 네트워크 설정 적용
-                print("새로운 네트워크 설정 적용...")
-                self.driver.execute_script("""
-                    window.isProxyDisabled = true;
-                    Object.defineProperty(navigator, 'connection', {
-                        value: {
-                            type: 'ethernet',
-                            effectiveType: '4g',
-                            downlink: 10,
-                            rtt: 50
-                        }
-                    });
-                """)
-                
-                # 헤더 정리
-                self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {'headers': {}})
-                
-                print("네트워크 설정 변경 완료")
-                
-                # 페이지 새로고침하여 설정 적용
-                print("설정 적용을 위해 페이지 새로고침...")
-                self.driver.refresh()
+                # 피드 페이지로 다시 이동
+                print("피드 페이지로 이동 중...")
+                self.driver.get('https://band.us/feed')
                 time.sleep(3)
                 
                 return True
@@ -788,6 +797,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
