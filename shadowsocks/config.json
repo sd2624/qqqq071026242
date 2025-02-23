@@ -1,0 +1,10 @@
+{
+  "server": "34.64.189.76",
+  "server_port": 16978,
+  "password": "Nsy5l8wxxzHg4CXPKwEw6S",
+  "method": "chacha20-ietf-poly1305",
+  "mode": "tcp_and_udp",
+  "fast_open": true,
+  "plugin": "",
+  "plugin_opts": ""
+}
