@@ -311,7 +311,7 @@ class BandAutoAction:
                 print("VPN 종료 완료")
                 time.sleep(2)
                 
-                # 프록시 설정 제거
+                # 프록시 설정만 제거 (기존 드라이버 유지)
                 print("프록시 설정 제거 중...")
                 self.driver.execute_cdp_cmd('Network.enable', {})
                 self.driver.execute_cdp_cmd('Network.emulateNetworkConditions', {
@@ -321,19 +321,15 @@ class BandAutoAction:
                     'uploadThroughput': -1
                 })
                 
-                # 새로운 브라우저 세션용 옵션 설정
+                # 기존 페이지에서 프록시 설정 제거
                 self.driver.execute_script("""
-                    try {
-                        // 모든 프록시 설정 초기화
-                        if (navigator && navigator.connection) {
-                            navigator.connection.type = 'ethernet';
-                        }
-                    } catch (e) {
-                        console.log('프록시 설정 초기화 중 오류:', e);
-                    }
+                    navigator.connection = navigator.connection || {};
+                    navigator.connection.type = 'ethernet';
+                    navigator.connection.downlink = 10;
+                    navigator.connection.rtt = 50;
                 """)
                 
-                # 페이지 새로고침
+                # 프록시 제거 후 현재 페이지 새로고침
                 print("페이지 새로고침...")
                 self.driver.refresh()
                 time.sleep(3)
