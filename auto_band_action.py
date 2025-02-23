@@ -58,56 +58,86 @@ class BandAutoAction:
             # 기본 옵션 추가
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-gpu")   # GPU 가속 비활성화
+            options.add_argument("--no-sandbox")    # 샌드박스 비활성화
             
-            # 프록시 설정 추가
-            options.add_argument("--proxy-server=http://127.0.0.1:1080")
-            options.add_argument("--remote-debugging-port=9222")
-            options.add_argument("--start-maximized")
-            options.add_argument("--disable-dev-shm-usage")
-
-            # 크롬 프로필 설정 (모든 환경에서 동일하게 적용)
-            profile_dir = "chrome-profile"
-            
-            # 프로필 디렉토리가 없으면 생성
-            if not os.path.exists(profile_dir):
-                os.makedirs(f"{profile_dir}/Default", exist_ok=True)
-            
-            # 압축된 프로필 해제 (기존 파일 덮어쓰기)
-            if os.path.exists("chrome_profile.zip"):
-                print("✅ 크롬 프로필 압축 해제 시작...")
-                if os.name == 'nt':  # Windows
-                    os.system(f"powershell Expand-Archive -Path chrome_profile.zip -DestinationPath {profile_dir} -Force")
-                else:  # Linux/Mac
-                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
-                print("✅ 크롬 프로필 압축 해제 완료")
-            else:
-                print("⚠️ chrome_profile.zip 파일이 없습니다!")
-                
-            # 권한 설정
-            if os.name != 'nt':  # Linux/Mac
-                os.system(f"chmod -R 777 {profile_dir}")
-            
-            # 프로필 옵션 설정
-            options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-            options.add_argument('--profile-directory=Default')
-            options.add_argument('--password-store=basic')
-            
-            # 자동화 감지 방지
-            options.add_experimental_option('excludeSwitches', ['enable-automation'])
-            options.add_experimental_option('useAutomationExtension', False)
-            
-            # Headless 모드 설정 (GitHub Actions에서만)
+            # GitHub Actions 환경인 경우 추가 설정
             if os.getenv('GITHUB_ACTIONS'):
-                options.add_argument("--headless=new")
-                
+                options.add_argument("--headless=new")  # 최신 headless 모드
                 # DNS 설정 변경 시도
                 try:
                     os.system('echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf > /dev/null')
                     print("✅ DNS 변경 완료")
                 except Exception as e:
                     print(f"⚠️ DNS 변경 실패 (무시됨): {e}")
+
+                # 기존 압축된 프로필 사용
+                profile_dir = "chrome-profile"
+                
+                # 프로필 디렉토리가 없으면 생성
+                if not os.path.exists(profile_dir):
+                    os.makedirs(f"{profile_dir}/Default", exist_ok=True)
+                
+                # 압축된 프로필 해제 (기존 파일 덮어쓰기)
+                if os.path.exists("chrome_profile.zip"):
+                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
+                    
+                # 권한 설정
+                os.system(f"chmod -R 777 {profile_dir}")
+                
+                # Chrome 옵션 설정
+                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
+                options.add_argument('--profile-directory=Default')
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--password-store=basic')
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                
+                # 프록시 설정
+                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
+                
+                # 자동화 감지 방지
+                options.add_experimental_option('excludeSwitches', ['enable-automation'])
+                options.add_experimental_option('useAutomationExtension', False)
+
+            else:
+                # 로컬 환경에서는 기존 설정 사용
+                timestamp = int(time.time() * 1000)
+                profile_dir = f"chrome_profile_{timestamp}"
+                
+                # 기존 프로필 디렉토리 제거
+                if os.path.exists(profile_dir):
+                    shutil.rmtree(profile_dir)
+                time.sleep(1)
+                
+                # 새 프로필 디렉토리 생성
+                os.makedirs(profile_dir, exist_ok=True)
+                
+                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
+                options.add_argument('--profile-directory=Default')
+                
+                # 기본 옵션
+                options.add_argument('--no-sandbox')
+                options.add_argument('--disable-dev-shm-usage')
+                options.add_argument('--disable-gpu')
+                options.add_argument('--disable-software-rasterizer')
+                
+                # 프로세스 분리 비활성화
+                options.add_argument('--disable-features=IsolateOrigins,site-per-process')
+                options.add_argument('--disable-site-isolation-trials')
+                
+                # 기타 필요한 설정
+                options.add_argument('--no-first-run')
+                options.add_argument('--no-default-browser-check')
+                options.add_argument('--password-store=basic')
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                
+                # 프록시 설정
+                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
+                
+                # 자동화 감지 방지
+                options.add_experimental_option('excludeSwitches', ['enable-automation'])
+                options.add_experimental_option('useAutomationExtension', False)
 
             # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
@@ -120,11 +150,11 @@ class BandAutoAction:
             self.driver.get('about:blank')
             time.sleep(2)
             
-            print(f"✅ Chrome driver initialized with profile: {profile_dir}")
+            print(f"Chrome driver initialized with profile: {profile_dir}")
             return True
             
         except Exception as e:
-            print(f"❌ Driver setup failed: {str(e)}")
+            print(f"Driver setup failed: {str(e)}")
             if self.driver:
                 try:
                     self.driver.quit()
@@ -200,84 +230,70 @@ class BandAutoAction:
             return False
 
     def login(self):
+        """버전0과 동일한 로그인 순서로 변경"""
         try:
             print("\n============== 로그인 시작 ==============")
             
-            # 1. 로그인 페이지로 이동 (버전0과 동일한 URL 사용)
-            login_url = 'https://auth.band.us/login'  # email_login이 아닌 기본 로그인 페이지
-            print(f"\n1. 로그인 페이지로 이동: {login_url}")
-            self.driver.get(login_url)
+            # 1. 로그인 페이지로 이동
+            print("\n1. 로그인 페이지로 이동...")
+            self.driver.get("https://auth.band.us/login")
+            time.sleep(5)
+            
+            # 2. 이메일 로그인 버튼 찾기
+            email_login_btn = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".uButtonRound.-h56.-icoType.-email"))
+            )
+            print("✓ 이메일 로그인 버튼 발견")
+            email_login_btn.click()
             time.sleep(3)
             
-            # 2. 이메일 로그인 버튼 클릭
-            print("\n2. 이메일 로그인 버튼 찾는 중...")
-            email_login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uButtonRound.-h56.-icoType.-email'))
-            )
-            email_login_btn.click()
-            time.sleep(2)
-            
             # 3. 이메일 입력
-            print("\n3. 이메일 입력...")
-            email_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'input_email'))
-            )
-            
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 email = config.get('email', '')
-            
-            email_input.clear()
-            time.sleep(1)
+                password = config.get('password', '')
+                
+            email_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "#input_email"))
+            )
             email_input.send_keys(email)
-            print(f"이메일 입력 완료: {email}")
             time.sleep(2)
             
             # 4. 다음 버튼 클릭
             next_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".uBtn.-tcType.-confirm"))
             )
             next_btn.click()
-            print("다음 버튼 클릭 완료")
             time.sleep(3)
             
             # 5. 비밀번호 입력
-            print("\n5. 비밀번호 입력...")
             pw_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'pw'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, "#pw"))
             )
-            password = config.get('password', '')
-            
-            pw_input.clear()
-            time.sleep(1)
             pw_input.send_keys(password)
-            print("비밀번호 입력 완료")
             time.sleep(2)
             
-            # 6. 최종 로그인 버튼 클릭
+            # 6. 로그인 버튼 클릭
             login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".uBtn.-tcType.-confirm"))
             )
             login_btn.click()
-            print("로그인 버튼 클릭 완료")
-            time.sleep(5)
-
-            # 7. band.us/feed로 이동하여 로그인 확인
-            print("\n7. 피드 페이지로 이동 중...")
-            self.driver.get('https://band.us/feed')
             time.sleep(5)
             
-            # 8. 피드 페이지 요소 확인
-            try:
-                WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
-                )
+            # 7. 로그인 완료 확인
+            if "auth.band.us" not in self.driver.current_url:
                 print("✅ 로그인 성공!")
                 print(f"현재 URL: {self.driver.current_url}")
+                
+                # 8. 피드 페이지로 이동
+                print("\n피드 페이지로 이동...")
+                self.driver.get("https://band.us/feed")
+                time.sleep(5)
                 return True
-            except:
-                raise Exception("피드 페이지 로딩 실패")
-
+                
+            else:
+                raise Exception("로그인 실패 - 인증 페이지를 벗어나지 못했습니다.")
+                
         except Exception as e:
             print("\n============== 로그인 실패 ==============")
             print(f"마지막 URL: {self.driver.current_url}")
@@ -724,6 +740,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
