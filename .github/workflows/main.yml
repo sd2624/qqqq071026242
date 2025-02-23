@@ -24,7 +24,6 @@ jobs:
         
     - name: Setup VPN
       run: |
-        # VPN 설정 파일 생성
         echo '{
           "server":"34.64.189.76",
           "server_port":16978,
@@ -33,23 +32,10 @@ jobs:
           "local_address":"127.0.0.1",
           "local_port":1080
         }' > ss-config.json
+        ss-local -c ss-config.json -v &
+        sleep 5
+        curl --socks5 127.0.0.1:1080 http://ip-api.com/json
         
-        # VPN 시작/중지 스크립트 생성
-        echo '#!/bin/bash
-        if [ "$1" = "start" ]; then
-          ss-local -c ss-config.json -v &
-          sleep 5
-          curl --socks5 127.0.0.1:1080 http://ip-api.com/json
-        elif [ "$1" = "stop" ]; then
-          pkill -f ss-local
-          sleep 2
-        fi' > vpn-control.sh
-        
-        chmod +x vpn-control.sh
-        
-        # 초기 VPN 시작
-        ./vpn-control.sh start
-
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
