@@ -463,26 +463,38 @@ class BandAutoAction:
             print(f"URL 입력 시작: {post_url}")
             editor.send_keys(post_url)
             print("URL 입력 완료")
-            time.sleep(1)
-            
-            # 미리보기 로딩 대기
-            print("미리보기 로딩 대기 시작...")
-            time.sleep(10)  # 10초로 증가
-            print("미리보기 로딩 완료")
-            
-            # URL 텍스트 삭제 - 새로운 방식
+
+            # 링크 프리뷰 로딩 확인
+            print("\n링크 프리뷰 로딩 확인 중...")
             try:
-                print("URL 텍스트 삭제 시작")
-                # 새로운 에디터 요소 다시 찾기
+                preview = WebDriverWait(self.driver, 15).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
+                )
+                print("✅ 링크 프리뷰 로딩 완료")
+            except Exception as e:
+                print(f"❌ 링크 프리뷰 로딩 실패: {str(e)}")
+                return False
+
+            # URL 텍스트만 삭제
+            try:
+                print("\nURL 텍스트 삭제 시작")
                 editor = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
                 )
+                # URL 텍스트 선택 및 삭제
                 editor.clear()
-                print("URL 텍스트 삭제 완료")
-                time.sleep(2)  # 대기 시간 추가
+                print("✅ URL 텍스트 삭제 완료")
+                
+                # 프리뷰가 여전히 존재하는지 한번 더 확인
+                preview = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
+                )
+                print("✅ 링크 프리뷰 유지 확인")
             except Exception as e:
-                print(f"URL 텍스트 삭제 중 오류: {str(e)}")
+                print(f"❌ URL 텍스트 삭제 또는 프리뷰 확인 실패: {str(e)}")
                 return False
+
+            time.sleep(2)  # 안정성을 위한 추가 대기
             
             # 미리보기가 완전히 로드될 때까지 대기
             print("미리보기 최종 로딩 대기...")
