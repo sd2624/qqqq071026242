@@ -24,78 +24,74 @@ jobs:
         
     - name: Setup VPN
       run: |
-        # 한국 VPN 서버 설정
+        # VPN 설정 파일 생성
         echo '{
-          "server":"kr1.vpngate.dyndns.org",
-          "server_port":995,
-          "local_port":1080,
-          "password":"vpngate",
-          "timeout":300,
+          "server":"34.64.189.76",
+          "server_port":16978,
+          "password":"Nsy5l8wxxzHg4CXPKwEw6S",
           "method":"chacha20-ietf-poly1305",
-          "fast_open":true
+          "local_address":"127.0.0.1",
+          "local_port":1080
         }' > ss-config.json
         
-        # Shadowsocks 시작
-        ss-local -c ss-config.json -v &
-        sleep 10
+        # VPN 시작/중지 스크립트 생성
+        echo '#!/bin/bash
+        if [ "$1" = "start" ]; then
+          ss-local -c ss-config.json -v &
+          sleep 5
+          curl --socks5 127.0.0.1:1080 http://ip-api.com/json
+        elif [ "$1" = "stop" ]; then
+          pkill -f ss-local
+          sleep 2
+        fi' > vpn-control.sh
         
-        # VPN 연결 확인
-        response=$(curl -s --socks5 127.0.0.1:1080 http://ip-api.com/json)
-        country=$(echo $response | jq -r '.country')
-        city=$(echo $response | jq -r '.city')
-        ip=$(echo $response | jq -r '.query')
+        chmod +x vpn-control.sh
         
-        echo "VPN 상태:"
-        echo "IP: $ip"
-        echo "국가: $country"
-        echo "도시: $city"
-        
-        if [ "$country" != "South Korea" ]; then
-          echo "Error: 한국 VPN 연결 실패"
-          exit 1
-        fi
+        # 초기 VPN 시작
+        ./vpn-control.sh start
 
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
-    - name: Check Chrome and Chromedriver Version
+    - name: Install Chrome and ChromeDriver
       run: |
-        # Chrome 버전 확인 (오류 처리 추가)
-        if ! chrome_version=$(google-chrome --version 2>/dev/null); then
-          echo "Chrome 버전 확인 실패, 다른 방법 시도..."
-          chrome_version=$(google-chrome-stable --version 2>/dev/null || chromium-browser --version 2>/dev/null)
-        fi
+        # 최신 안정버전 Chrome 설치
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
         
-        if [ -z "$chrome_version" ]; then
-          echo "Chrome 버전을 확인할 수 없습니다."
+        # Chrome 버전 확인
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
+        CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION" | cut -d. -f1)
+        echo "설치된 Chrome 버전: $CHROME_VERSION"
+        
+        # Chrome for Testing API에서 매칭되는 ChromeDriver 찾기
+        API_URL="https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json"
+        MATCHING_DRIVER=$(curl -s "$API_URL" | \
+          jq -r ".versions[] | 
+          select(.version | startswith(\"$CHROME_MAJOR_VERSION.\")) |
+          .downloads.chromedriver[] | 
+          select(.platform==\"linux64\").url" | head -1)
+        
+        if [ -z "$MATCHING_DRIVER" ]; then
+          echo "호환되는 ChromeDriver를 찾을 수 없습니다."
           exit 1
         fi
         
-        echo "감지된 Chrome 버전: $chrome_version"
-        CHROME_VERSION=$(echo "$chrome_version" | awk '{print $NF}' | cut -d'.' -f1)
-        echo "추출된 메이저 버전: $CHROME_VERSION"
-
-    - name: Install Compatible Chromedriver
-      run: |
-        if [ -z "$CHROME_VERSION" ]; then
-          echo "Chrome 버전을 찾을 수 없어 최신 버전의 Chromedriver를 설치합니다."
-          CHROMEDRIVER_VERSION=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE)
-        else
-          CHROMEDRIVER_VERSION=$(wget -qO- "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
-        fi
+        echo "다운로드할 ChromeDriver URL: $MATCHING_DRIVER"
         
-        echo "Chromedriver 버전: $CHROMEDRIVER_VERSION"
-        wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
-        
-        if [ ! -f "chromedriver_linux64.zip" ]; then
-          echo "Chromedriver 다운로드 실패"
-          exit 1
-        fi
-        
-        unzip -o chromedriver_linux64.zip
-        sudo mv chromedriver /usr/local/bin/
+        # ChromeDriver 다운로드 및 설치
+        wget -q "$MATCHING_DRIVER" -O chromedriver.zip
+        unzip -o chromedriver.zip
+        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
-        rm chromedriver_linux64.zip
+        rm -rf chromedriver.zip chromedriver-linux64
+        
+        # 버전 확인
+        echo "=== 설치된 버전 정보 ==="
+        google-chrome --version
+        chromedriver --version
 
     - name: Download Chrome Profile
       run: |
@@ -144,27 +140,65 @@ jobs:
 
     - name: Setup Chrome Profile
       run: |
-        # 프로필 디렉토리 설정
-        PROFILE_DIR="/tmp/chrome-profile-$GITHUB_RUN_ID"
+        # 고유한 프로필 디렉토리 설정
+        PROFILE_DIR="/tmp/chrome-profile-${GITHUB_RUN_ID}"
+        echo "프로필 디렉토리: $PROFILE_DIR"
+        
+        # 기존 프로필 완전 제거
+        sudo rm -rf "$PROFILE_DIR"
         mkdir -p "$PROFILE_DIR/Default"
         
-        # 기존 프로필 압축 해제
-        unzip -o chrome_profile.zip -d "$PROFILE_DIR"
-        chmod -R 777 "$PROFILE_DIR"
+        # 프로필 압축 해제
+        echo "프로필 설정 중..."
+        unzip -o chrome_profile.zip -d "$PROFILE_DIR" || {
+          echo "프로필 압축 해제 실패"
+          exit 1
+        }
         
-        # 프록시 설정 추가
-        echo '{
-          "browser": {
-            "proxy_settings": {
-              "socks_server": {
-                "host": "127.0.0.1",
-                "port": 1080
-              }
-            }
-          }
-        }' > "$PROFILE_DIR/Default/Preferences"
+        # 권한 설정
+        sudo chown -R runner:docker "$PROFILE_DIR"
+        chmod -R 755 "$PROFILE_DIR"
         
-        echo "CHROME_PROFILE_DIR=$PROFILE_DIR" >> $GITHUB_ENV
+        # 초기 디렉토리 구조 설정
+        for dir in "Cache" "Local Storage" "Session Storage" "Network" "Extension State"; do
+          mkdir -p "$PROFILE_DIR/Default/$dir"
+          chmod 755 "$PROFILE_DIR/Default/$dir"
+        done
+        
+        # 환경 변수 설정
+        {
+          echo "CHROME_PROFILE_DIR=$PROFILE_DIR"
+          echo "CHROME_BIN=/usr/bin/google-chrome-stable"
+        } >> $GITHUB_ENV
+        
+        echo "프로필 구조:"
+        ls -la "$PROFILE_DIR/Default/"
+
+    - name: Configure Chrome Profile
+      run: |
+        PROFILE_DIR="${CHROME_PROFILE_DIR}"
+        
+        # 필수 파일 확인
+        required_files=("Preferences" "Cookies" "Login Data")
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$PROFILE_DIR/Default/$file" ]; then
+            echo "생성: $file"
+            touch "$PROFILE_DIR/Default/$file"
+            chmod 644 "$PROFILE_DIR/Default/$file"
+          fi
+        done
+        
+        # 중요 디렉토리 권한 설정
+        for dir in "Cache" "Local Storage" "Session Storage" "Network"; do
+          dir_path="$PROFILE_DIR/Default/$dir"
+          if [ -d "$dir_path" ]; then
+            find "$dir_path" -type d -exec chmod 755 {} \;
+            find "$dir_path" -type f -exec chmod 644 {} \;
+          fi
+        done
+        
+        echo "프로필 구성 완료:"
+        ls -la "$PROFILE_DIR/Default/"
 
     - name: Check and Setup Required Directories
       run: |
@@ -414,4 +448,3 @@ jobs:
           tail -n 20 band_auto.log
           
         } | tee execution_summary.txt
-
