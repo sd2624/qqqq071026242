@@ -50,6 +50,31 @@ jobs:
         # 프록시 연결 테스트
         curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json
 
+    - name: Check VPN process
+      run: |
+        ps aux | grep sslocal
+        echo "현재 Shadowsocks 프로세스 상태:"
+        ss -tulpn | grep 1080 || true
+
+    - name: Restart Shadowsocks Client
+      run: |
+        # 기존 프로세스 종료
+        pkill -f sslocal || true
+        sleep 2
+        
+        # 직접 실행으로 재시작
+        nohup sslocal -s 34.64.189.76 -p 16978 -k "Nsy5l8wxxzHg4CXPKwEw6S" -m chacha20-ietf-poly1305 -l 1080 --udp-relay &
+        sleep 5
+        
+        # 프록시 환경변수 설정
+        export HTTPS_PROXY=socks5h://127.0.0.1:1080
+        export HTTP_PROXY=socks5h://127.0.0.1:1080
+        echo "HTTPS_PROXY=socks5h://127.0.0.1:1080" >> $GITHUB_ENV
+        echo "HTTP_PROXY=socks5h://127.0.0.1:1080" >> $GITHUB_ENV
+        
+        # 연결 확인
+        curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json
+
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
