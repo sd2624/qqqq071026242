@@ -16,10 +16,28 @@ jobs:
       with:
         python-version: '3.12'
         
+    - name: Configure Network Settings
+      run: |
+        # DNS 설정
+        echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf > /dev/null
+        echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf > /dev/null
+        
+        # 네트워크 타임아웃 설정
+        echo "tcp_keepalive_time = 60" | sudo tee -a /etc/sysctl.conf
+        echo "tcp_keepalive_intvl = 60" | sudo tee -a /etc/sysctl.conf
+        echo "tcp_keepalive_probes = 5" | sudo tee -a /etc/sysctl.conf
+        sudo sysctl -p
+        
+        # HTTP_PROXY 설정 제거 (직접 연결 시도)
+        unset http_proxy
+        unset https_proxy
+        unset HTTP_PROXY
+        unset HTTPS_PROXY
+
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y unzip shadowsocks-libev
+        sudo apt-get install -y unzip shadowsocks-libev curl wget
         pip install selenium requests beautifulsoup4 webdriver_manager
 
     - name: Setup Shadowsocks
