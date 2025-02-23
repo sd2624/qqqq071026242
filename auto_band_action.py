@@ -360,6 +360,15 @@ class BandAutoAction:
                 self.driver.refresh()
                 time.sleep(5)  # 충분한 대기 시간
                 
+                # 현재 URL 확인 및 피드 페이지로 이동
+                current_url = self.driver.current_url
+                print(f"현재 URL: {current_url}")
+                
+                if 'band.us/feed' not in current_url:
+                    print("피드 페이지로 이동 중...")
+                    self.driver.get('https://band.us/feed')
+                    time.sleep(5)
+                
                 # 더보기 버튼 찾기 및 클릭
                 max_btn_attempts = 3
                 for attempt in range(max_btn_attempts):
@@ -374,7 +383,8 @@ class BandAutoAction:
                         return True
                     except:
                         print(f"더보기 버튼 클릭 재시도... ({attempt + 1}/{max_btn_attempts})")
-                        self.driver.refresh()
+                        print("피드 페이지로 다시 이동 중...")
+                        self.driver.get('https://band.us/feed')
                         time.sleep(3)
                         
                 return False
