@@ -298,10 +298,8 @@ class BandAutoAction:
                 print("더보기 버튼 클릭 완료")
                 time.sleep(3)
                 
-                # 로그인 성공 시 VPN 종료 및 프록시 설정 제거
-                print("\nVPN 및 프록시 설정 제거 중...")
-                
-                # 1. VPN 프로세스 종료
+                # VPN 종료
+                print("\nVPN 종료 중...")
                 if os.getenv('GITHUB_ACTIONS'):
                     subprocess.run(['./vpn-control.sh', 'stop'], 
                                  stdout=subprocess.DEVNULL, 
@@ -310,33 +308,36 @@ class BandAutoAction:
                     subprocess.run(['taskkill', '/F', '/IM', 'v2ray.exe'], 
                                  stdout=subprocess.DEVNULL, 
                                  stderr=subprocess.DEVNULL)
-                print("VPN 프로세스 종료 완료")
+                print("VPN 종료 완료")
                 time.sleep(2)
                 
-                # 2. 프록시 설정 완전 제거
+                # 프록시 설정 제거
                 print("프록시 설정 제거 중...")
                 self.driver.execute_cdp_cmd('Network.enable', {})
-                self.driver.execute_cdp_cmd('Network.setBypassServiceWorker', {'bypass': True})
                 self.driver.execute_cdp_cmd('Network.emulateNetworkConditions', {
                     'offline': False,
                     'latency': 0,
                     'downloadThroughput': -1,
                     'uploadThroughput': -1
                 })
-                self.driver.execute_cdp_cmd('Network.clearBrowserCache', {})
-                self.driver.execute_cdp_cmd('Network.clearBrowserCookies', {})
-                self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {'headers': {}})
                 
-                # 3. Chrome 프록시 직접 설정 제거
+                # 새로운 브라우저 세션용 옵션 설정
                 self.driver.execute_script("""
-                    chrome.proxy.settings.clear({scope: 'regular'}, function() {});
+                    try {
+                        // 모든 프록시 설정 초기화
+                        if (navigator && navigator.connection) {
+                            navigator.connection.type = 'ethernet';
+                        }
+                    } catch (e) {
+                        console.log('프록시 설정 초기화 중 오류:', e);
+                    }
                 """)
-                print("프록시 설정 제거 완료")
                 
-                # 4. 페이지 새로고침
-                print("페이지 새로고침 중...")
+                # 페이지 새로고침
+                print("페이지 새로고침...")
                 self.driver.refresh()
                 time.sleep(3)
+                print("프록시 설정 제거 완료")
                 
                 return True
                 
