@@ -34,12 +34,13 @@ jobs:
           "local_port":1080
         }' > ss-config.json
         
-        # VPN 시작/중지 스크립트 생성 및 권한 설정
+        # VPN 컨트롤 스크립트 생성 및 권한 설정
         echo '#!/bin/bash
         if [ "$1" = "start" ]; then
           ss-local -c ss-config.json -v &
           sleep 5
           echo "VPN 시작됨"
+          # IP 체크
           curl --socks5 127.0.0.1:1080 http://ip-api.com/json
         elif [ "$1" = "stop" ]; then
           pkill -f ss-local || true
@@ -51,7 +52,7 @@ jobs:
         
         # 초기 VPN 시작
         ./vpn-control.sh start
-
+        
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
 
@@ -103,7 +104,6 @@ jobs:
         if [ ! -f "chrome_profile.zip" ]; then
           echo "프로필 다운로드 실패"
           exit 1
-        fi
         
         echo "프로필 다운로드 완료"
         ls -la chrome_profile.zip
@@ -238,31 +238,6 @@ jobs:
         PYTHONUNBUFFERED: 1
         TZ: "Asia/Seoul"
       run: |
-        # VPN 상태 확인 함수 추가
-        check_vpn() {
-          if curl --silent --socks5 127.0.0.1:1080 http://ip-api.com/json | grep -q "South Korea"; then
-            return 0
-          else
-            return 1
-          fi
-        }
-
-        # VPN 시작 함수
-        start_vpn() {
-          echo "VPN 시작 중..."
-          ./vpn-control.sh start
-          sleep 5
-          if check_vpn; then
-            echo "VPN 연결 성공"
-          else
-            echo "VPN 연결 실패"
-            exit 1
-          fi
-        }
-
-        # 초기 VPN 시작
-        start_vpn
-
         export CHROME_OPTIONS="
           --user-data-dir=${CHROME_PROFILE_DIR}
           --profile-directory=Default
