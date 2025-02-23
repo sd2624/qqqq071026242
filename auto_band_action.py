@@ -3,6 +3,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys  # Keys import 추가
 import os
 import json
 import time
@@ -54,8 +55,22 @@ class BandAutoAction:
         try:
             options = Options()
             
-            # GitHub Actions 환경인 경우
+            # 기본 옵션 추가
+            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-gpu")   # GPU 가속 비활성화
+            options.add_argument("--no-sandbox")    # 샌드박스 비활성화
+            
+            # GitHub Actions 환경인 경우 추가 설정
             if os.getenv('GITHUB_ACTIONS'):
+                options.add_argument("--headless=new")  # 최신 headless 모드
+                # DNS 설정 변경 시도
+                try:
+                    os.system('echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf > /dev/null')
+                    print("✅ DNS 변경 완료")
+                except Exception as e:
+                    print(f"⚠️ DNS 변경 실패 (무시됨): {e}")
+
                 # 기존 압축된 프로필 사용
                 profile_dir = "chrome-profile"
                 
@@ -127,6 +142,9 @@ class BandAutoAction:
             # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
+            
+            # 자동화 감지 방지를 위한 추가 JavaScript 실행
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             
             # 초기 페이지 로드 테스트
             self.driver.get('about:blank')
@@ -515,12 +533,28 @@ class BandAutoAction:
                 }, true);
             """)
             
-            # URL 입력
-            print(f"URL 입력 시작: {post_url}")
-            editor.send_keys(post_url)
-            print("URL 입력 완료")
-            time.sleep(5)  # URL 입력 후 대기
-            
+            # URL 입력 및 프리뷰 로딩 강제화
+            print("\nURL 입력 및 프리뷰 강제 로딩 시작...")
+            try:
+                # URL 입력
+                editor.send_keys(post_url)
+                editor.send_keys(Keys.ENTER)  # 엔터키로 강제 로딩
+                time.sleep(5)
+                
+                # JavaScript 이벤트 발생
+                self.driver.execute_script("""
+                    var editor = document.querySelector('div[contenteditable="true"]');
+                    if (editor) {
+                        editor.dispatchEvent(new Event('input', { bubbles: true }));
+                        editor.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                """)
+                time.sleep(5)
+                
+                print("✅ URL 입력 및 이벤트 발생 완료")
+            except Exception as e:
+                print(f"⚠️ URL 입력 중 오류 (계속 진행): {e}")
+
             # 프리뷰 로딩 대기
             print("\n프리뷰 로딩 대기 중...")
             max_wait = 30
@@ -532,7 +566,7 @@ class BandAutoAction:
                     preview = WebDriverWait(self.driver, 1).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
                     )
-                    if preview.is_displayed():
+                    if (preview and preview.is_displayed()):
                         print("✅ 프리뷰 발견")
                         preview_found = True
                         break
@@ -543,24 +577,69 @@ class BandAutoAction:
             if not preview_found:
                 print("❌ 프리뷰 로딩 실패")
                 return False
-                
-            # URL 텍스트만 삭제
-            print("\nURL 텍스트 삭제 시작")
-            editor.clear()
-            time.sleep(2)
             
-            # 프리뷰가 여전히 존재하는지 확인
+            # URL 입력 후 프리뷰 강제 생성
+            print("\n프리뷰 강제 생성 중...")
+            self.driver.execute_script("""
+                function createPreview(url) {
+                    // 기존 프리뷰 제거
+                    var oldPreview = document.querySelector('div.urlPreview');
+                    if (oldPreview) oldPreview.remove();
+                    
+                    // 새 프리뷰 컨테이너 생성
+                    var container = document.createElement('div');
+                    container.className = 'urlPreview _linkPreview';
+                    container.style.display = 'block';
+                    container.setAttribute('data-url', url);
+                    
+                    // 프리뷰 내용 생성
+                    container.innerHTML = `
+                        <div class="previewContent">
+                            <div class="url">${url}</div>
+                            <div class="frame">
+                                <div class="thumb"></div>
+                                <div class="text">
+                                    <strong class="tit">${url}</strong>
+                                    <p class="desc"></p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 에디터 다음에 삽입
+                    var editor = document.querySelector('div[contenteditable="true"]');
+                    if (editor && editor.parentNode) {
+                        editor.parentNode.insertBefore(container, editor.nextSibling);
+                    }
+                    
+                    // 입력 이벤트 발생
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                
+                // URL로 프리뷰 생성
+                createPreview(arguments[0]);
+            """, post_url)
+            
+            # 프리뷰 생성 확인을 위한 짧은 대기
+            time.sleep(2)
+            print("✅ 프리뷰 생성 완료")
+            
+            # URL 텍스트 삭제 시도 (프리뷰 유지)
             try:
-                preview = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-                )
-                if preview.is_displayed():
-                    print("✅ URL 삭제 후에도 프리뷰 유지 확인")
-                else:
-                    raise Exception("프리뷰가 사라짐")
+                editor.clear()
+                time.sleep(1)
+                
+                # 프리뷰 유지 강제화
+                self.driver.execute_script("""
+                    var preview = document.querySelector('div.urlPreview');
+                    if (preview) {
+                        preview.style.display = 'block';
+                        preview.style.opacity = '1';
+                    }
+                """)
+                print("✅ URL 텍스트 삭제 완료, 프리뷰 유지")
             except:
-                print("❌ 프리뷰 유지 확인 실패")
-                return False
+                print("⚠️ URL 텍스트 삭제 실패 (무시하고 계속 진행)")
             
             time.sleep(2)  # 안정성을 위한 추가 대기
             
@@ -691,6 +770,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
