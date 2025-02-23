@@ -16,40 +16,11 @@ class BandAutoAction:
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.join(self.script_dir, 'config.json')
         self.bands_file = os.path.join(self.script_dir, 'band_urls.json')
-        self.driver = None  # driver 초기화 추가
-        self.original_options = None  # Chrome 옵션 저장용 변수 추가
-        self.setup_vpn()
+        self.driver = None
         
         # driver 설정 실패 시 예외 처리 추가
         if not self.setup_driver():
             raise Exception("Chrome driver 초기화 실패")
-            
-    def setup_vpn(self):
-        """한국 VPN 연결 확인"""
-        try:
-            # GitHub Actions에서 설정된 프록시 사용
-            proxies = {
-                'http': 'socks5h://127.0.0.1:1080',
-                'https': 'socks5h://127.0.0.1:1080'
-            } if os.getenv('GITHUB_ACTIONS') else None
-            
-            response = requests.get("http://ip-api.com/json", proxies=proxies)
-            ip_info = response.json()
-            
-            print("\n============== VPN 상태 ==============")
-            print(f"현재 IP: {ip_info.get('query')}")
-            print(f"국가: {ip_info.get('country')}")
-            print(f"지역: {ip_info.get('regionName')}")
-            print(f"도시: {ip_info.get('city')}")
-            print(f"ISP: {ip_info.get('isp')}")
-            print("=====================================\n")
-            
-            if ip_info.get('country') != 'South Korea':
-                raise Exception("한국 IP가 아닙니다!")
-                
-        except Exception as e:
-            print(f"VPN 설정 실패: {str(e)}")
-            raise
 
     def setup_driver(self):
         try:
@@ -57,17 +28,22 @@ class BandAutoAction:
             
             # GitHub Actions 환경인 경우
             if os.getenv('GITHUB_ACTIONS'):
-                # 기존 압축된 프로필 사용
                 profile_dir = "chrome-profile"
                 
                 # 프로필 디렉토리가 없으면 생성
                 if not os.path.exists(profile_dir):
                     os.makedirs(f"{profile_dir}/Default", exist_ok=True)
                 
-                # 압축된 프로필 해제 (기존 파일 덮어쓰기)
-                if os.path.exists("chrome_profile.zip"):
-                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
-                    
+                # vol1~vol8 egg 파일 처리
+                for i in range(1, 9):  # 1부터 8까지
+                    egg_file = f"chrome_profile_qqqq071026242.vol{i}"
+                    if os.path.exists(egg_file):
+                        print(f"Extracting {egg_file}...")
+                        # egg 파일 압축 해제
+                        subprocess.run(['unzip', '-o', egg_file, '-d', profile_dir], check=True)
+                    else:
+                        print(f"Warning: {egg_file} not found")
+                        
                 # 권한 설정
                 os.system(f"chmod -R 777 {profile_dir}")
                 
@@ -78,13 +54,6 @@ class BandAutoAction:
                 options.add_argument('--disable-dev-shm-usage')
                 options.add_argument('--password-store=basic')
                 options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
 
             else:
                 # 로컬 환경에서는 기존 설정 사용
@@ -99,34 +68,23 @@ class BandAutoAction:
                 # 새 프로필 디렉토리 생성
                 os.makedirs(profile_dir, exist_ok=True)
                 
+                # Chrome 옵션 설정
                 options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
                 options.add_argument('--profile-directory=Default')
-                
-                # 기본 옵션
                 options.add_argument('--no-sandbox')
                 options.add_argument('--disable-dev-shm-usage')
                 options.add_argument('--disable-gpu')
                 options.add_argument('--disable-software-rasterizer')
-                
-                # 프로세스 분리 비활성화
                 options.add_argument('--disable-features=IsolateOrigins,site-per-process')
                 options.add_argument('--disable-site-isolation-trials')
-                
-                # 기타 필요한 설정
                 options.add_argument('--no-first-run')
                 options.add_argument('--no-default-browser-check')
                 options.add_argument('--password-store=basic')
                 options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
-
-            # 프록시 설정을 나중에 제거할 수 있도록 옵션 저장
-            self.original_options = options
+            
+            # 자동화 감지 방지
+            options.add_experimental_option('excludeSwitches', ['enable-automation'])
+            options.add_experimental_option('useAutomationExtension', False)
             
             # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
@@ -214,191 +172,6 @@ class BandAutoAction:
             print(f"마지막 URL: {self.driver.current_url}")
             print(f"오류 내용: {str(e)}")
             return False
-
-    def login(self):
-        try:
-            print("\n============== 로그인 시작 ==============")
-            print(f"초기 URL: {self.driver.current_url}")
-            
-            # 로그인 페이지로 이동
-            login_url = 'https://auth.band.us/login'
-            print(f"\n1. 로그인 페이지로 이동: {login_url}")
-            self.navigate_to_url(login_url)
-            print(f"현재 URL: {self.driver.current_url}")
-            time.sleep(3)
-            
-            # 이메일 로그인 버튼 찾고 클릭
-            print("\n2. 이메일 로그인 버튼 찾는 중...")
-            email_login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uButtonRound.-h56.-icoType.-email'))
-            )
-            email_login_btn.click()
-            print(f"현재 URL: {self.driver.current_url}")
-            time.sleep(2)
-
-            # 이메일 입력
-            print("\n3. 이메일 입력 페이지...")
-            print(f"현재 URL: {self.driver.current_url}")
-            email_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'input_email'))
-            )
-            
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                email = config.get('email', '')
-            
-            print(f"이메일 입력 시작: {email}")
-            email_input.send_keys(email)
-            print("이메일 입력 완료")
-            time.sleep(1)
-            
-            # 다음 버튼 클릭
-            email_next_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
-            )
-            email_next_btn.click()
-            print("\n4. 다음 버튼 클릭")
-            print(f"현재 URL: {self.driver.current_url}")
-            time.sleep(2)
-
-            # 비밀번호 입력
-            print("\n5. 비밀번호 입력 페이지...")
-            print(f"현재 URL: {self.driver.current_url}")
-            pw_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'pw'))
-            )
-            password = config.get('password', '')
-            print("비밀번호 입력 시작")
-            pw_input.send_keys(password)
-            print("비밀번호 입력 완료")
-            time.sleep(1)
-            
-            # 로그인 버튼 클릭
-            login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))  # 이 버튼을 클릭
-            )
-            print("\n6. 로그인 버튼 클릭")
-            login_btn.click()
-            
-            # 즉시 URL 체크
-            time.sleep(2)
-            current_url = self.driver.current_url
-            print(f"\n로그인 버튼 클릭 직후 URL: {current_url}")
-            
-            # band.us/feed로 직접 이동
-            print("\nband.us/feed 페이지로 이동 중...")
-            self.driver.get('https://band.us/feed')
-            time.sleep(5)
-            print(f"현재 URL: {self.driver.current_url}")
-            
-            # 피드 페이지 로딩 확인
-            try:
-                # VPN 종료
-                print("\nVPN 종료 시도 중...")
-                max_vpn_attempts = 3
-                vpn_stopped = False
-                
-                for attempt in range(max_vpn_attempts):
-                    try:
-                        if os.getenv('GITHUB_ACTIONS'):
-                            subprocess.run(['./vpn-control.sh', 'stop'], 
-                                         stdout=subprocess.DEVNULL, 
-                                         stderr=subprocess.DEVNULL,
-                                         timeout=10)  # 10초 타임아웃
-                        else:
-                            subprocess.run(['taskkill', '/F', '/IM', 'v2ray.exe'], 
-                                         stdout=subprocess.DEVNULL, 
-                                         stderr=subprocess.DEVNULL,
-                                         timeout=10)
-                        vpn_stopped = True
-                        print(f"VPN 종료 성공 (시도 {attempt + 1}/{max_vpn_attempts})")
-                        break
-                    except:
-                        print(f"VPN 종료 재시도... ({attempt + 1}/{max_vpn_attempts})")
-                        time.sleep(2)
-                
-                if not vpn_stopped:
-                    print("⚠️ VPN 종료 실패, 계속 진행...")
-                
-                print("\n프록시 설정 제거를 위해 새 드라이버 생성 중...")
-                
-                # 기존 쿠키 저장
-                cookies = self.driver.get_cookies()
-                
-                # 새로운 Chrome 옵션 생성 (프록시 없음)
-                new_options = Options()
-                if os.getenv('GITHUB_ACTIONS'):
-                    profile_dir = os.getenv('CHROME_PROFILE_DIR', 'chrome-profile')
-                    new_options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-                    new_options.add_argument('--profile-directory=Default')
-                
-                # 기본 옵션 추가
-                new_options.add_argument('--no-sandbox')
-                new_options.add_argument('--disable-dev-shm-usage')
-                new_options.add_argument('--disable-gpu')
-                new_options.add_argument('--disable-features=IsolateOrigins,site-per-process')
-                
-                # 자동화 감지 방지
-                new_options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                new_options.add_experimental_option('useAutomationExtension', False)
-                
-                # 기존 드라이버 저장
-                old_driver = self.driver
-                
-                # 새 드라이버 생성
-                self.driver = webdriver.Chrome(options=new_options)
-                self.driver.set_page_load_timeout(30)
-                
-                # 빈 페이지로 이동
-                print("새 드라이버 초기화...")
-                self.driver.get('about:blank')
-                time.sleep(2)
-                
-                # 쿠키 복원
-                print("쿠키 복원 중...")
-                for cookie in cookies:
-                    try:
-                        self.driver.add_cookie(cookie)
-                    except:
-                        continue
-                
-                # 피드 페이지로 이동
-                print("피드 페이지로 이동...")
-                self.driver.get('https://band.us/feed')
-                time.sleep(5)
-                
-                # 기존 드라이버 종료
-                try:
-                    old_driver.quit()
-                except:
-                    pass
-                
-                # 더보기 버튼 찾기
-                print("더보기 버튼 찾는 중...")
-                more_btn = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                )
-                print("더보기 버튼 발견")
-                more_btn.click()
-                print("더보기 버튼 클릭 완료")
-                time.sleep(3)
-                
-                return True
-                
-            except Exception as e:
-                print(f"피드 페이지 로딩 실패: {str(e)}")
-                return False
-            
-            print("\n로그인 성공!")
-            print(f"최종 접속 URL: {self.driver.current_url}")
-            print("==========================================")
-            
-        except Exception as e:
-            print("\n============== 로그인 실패 ==============")
-            print(f"마지막 URL: {self.driver.current_url}")
-            print(f"오류 내용: {str(e)}")
-            print("========================================")
-            raise
 
     def get_band_list(self):
         """밴드 목록 가져오기"""
@@ -723,13 +496,6 @@ class BandAutoAction:
             except:
                 pass
             self.driver = None
-            
-        # VPN 연결 해제
-        try:
-            # VPN 해제 로직 추가 (실제 구현 필요)
-            print("VPN disconnected")
-        except:
-            pass
 
     def __del__(self):
         """소멸자에서 리소스 정리"""
@@ -741,22 +507,26 @@ def main():
         bot = BandAutoAction()
         
         print("\n============== 작업 시작 ==============")
-        print("1. 로그인 시도...")
-        bot.login()  # 로그인 먼저 실행
+        print("1. 피드 페이지로 이동...")
         
-        print("\n2. 밴드 목록 수집 중...")
+        # 피드 페이지로 직접 이동
+        print("\nband.us/feed 페이지로 이동 중...")
+        bot.driver.get('https://band.us/feed')
+        time.sleep(5)  # 페이지 로딩 대기
+        
+        print("2. 밴드 목록 수집 중...")
         bands = bot.get_band_list()
         
-        print("\n2. 설정 파일 읽기...")
+        print("\n3. 설정 파일 읽기...")
         with open(bot.config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
-            
+        
         # 빈 URL을 제외한 URL 목록 생성
         urls = []
         for i in range(1, 31):
             url = config.get(f'post_url_{i}', '').strip()
             if url:
-                urls.append((i, url))  # URL과 함께 인덱스도 저장
+                urls.append((i, url))
                 
         if not urls:
             print("포스팅할 URL이 없습니다!")
