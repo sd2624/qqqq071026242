@@ -488,76 +488,98 @@ class BandAutoAction:
             print(f"URL 입력 시작: {post_url}")
             editor.send_keys(post_url)
             print("URL 입력 완료")
-
-            # URL 입력 검증
-            print("\nURL 입력 및 검증 시작...")
-            max_attempts = 3
-            url_input_success = False
             
-            for attempt in range(max_attempts):
-                try:
-                    # URL 입력
-                    print(f"URL 입력 시도 {attempt + 1}/{max_attempts}")
-                    editor.send_keys(post_url)
-                    
-                    # 입력된 내용 확인
-                    actual_content = editor.get_attribute('innerText').strip()
-                    if post_url in actual_content:
-                        print("✅ URL 입력 확인 완료")
-                        url_input_success = True
-                        break
-                    else:
-                        print(f"❌ URL 입력 불일치 (시도 {attempt + 1})")
-                        editor.clear()
-                        time.sleep(2)
-                except Exception as e:
-                    print(f"URL 입력 중 오류 발생 (시도 {attempt + 1}): {str(e)}")
-                    time.sleep(2)
-
-            if not url_input_success:
-                print("❌ URL 입력 실패")
-                return False
-
-            # 프리뷰 로딩 대기
-            print("\n링크 프리뷰 로딩 대기 중...")
-            preview_found = False
-            max_wait = 30  # 최대 30초 대기
-            start_time = time.time()
-            
-            while time.time() - start_time < max_wait:
-                try:
-                    preview = self.driver.find_element(By.CSS_SELECTOR, 'div.urlPreview')
-                    if preview.is_displayed():
-                        print("✅ 링크 프리뷰 발견")
-                        preview_found = True
-                        break
-                except:
-                    print(f"프리뷰 로딩 중... ({int(time.time() - start_time)}초)")
-                    time.sleep(2)
-
-            if not preview_found:
-                print("❌ 링크 프리뷰 로딩 실패")
-                return False
-
-            # URL 텍스트를 삭제하지 않고 바로 게시
-            print("\n✅ URL 텍스트와 프리뷰 확인 완료")
-            time.sleep(2)
-
-            # 게시 버튼 클릭
-            try:
-                submit_btn = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-                )
-                print("✅ 게시 버튼 발견")
-                submit_btn.click()
-                print("✅ 게시 완료")
-                time.sleep(3)
-                return True
+            # GitHub Actions 환경인 경우 다르게 처리
+            if os.getenv('GITHUB_ACTIONS'):
+                print("GitHub Actions 환경 감지 - 프리뷰 검사 건너뛰기")
+                time.sleep(30)  # 30초 대기
                 
-            except Exception as e:
-                print("❌ 게시 실패:")
-                print(f"- 오류 내용: {str(e)}")
-                return False
+                # 게시 버튼 클릭
+                try:
+                    submit_btn = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                    )
+                    print("✅ 게시 버튼 발견")
+                    submit_btn.click()
+                    print("✅ 게시 완료")
+                    time.sleep(3)
+                    return True
+                except Exception as e:
+                    print("❌ 게시 실패:")
+                    print(f"- 오류 내용: {str(e)}")
+                    return False
+            
+            else:
+                # 로컬 환경에서는 기존 프리뷰 검사 로직 유지
+                # URL 입력 검증
+                print("\nURL 입력 및 검증 시작...")
+                max_attempts = 3
+                url_input_success = False
+                
+                for attempt in range(max_attempts):
+                    try:
+                        # URL 입력
+                        print(f"URL 입력 시도 {attempt + 1}/{max_attempts}")
+                        editor.send_keys(post_url)
+                        
+                        # 입력된 내용 확인
+                        actual_content = editor.get_attribute('innerText').strip()
+                        if post_url in actual_content:
+                            print("✅ URL 입력 확인 완료")
+                            url_input_success = True
+                            break
+                        else:
+                            print(f"❌ URL 입력 불일치 (시도 {attempt + 1})")
+                            editor.clear()
+                            time.sleep(2)
+                    except Exception as e:
+                        print(f"URL 입력 중 오류 발생 (시도 {attempt + 1}): {str(e)}")
+                        time.sleep(2)
+
+                if not url_input_success:
+                    print("❌ URL 입력 실패")
+                    return False
+
+                # 프리뷰 로딩 대기
+                print("\n링크 프리뷰 로딩 대기 중...")
+                preview_found = False
+                max_wait = 30  # 최대 30초 대기
+                start_time = time.time()
+                
+                while time.time() - start_time < max_wait:
+                    try:
+                        preview = self.driver.find_element(By.CSS_SELECTOR, 'div.urlPreview')
+                        if preview.is_displayed():
+                            print("✅ 링크 프리뷰 발견")
+                            preview_found = True
+                            break
+                    except:
+                        print(f"프리뷰 로딩 중... ({int(time.time() - start_time)}초)")
+                        time.sleep(2)
+
+                if not preview_found:
+                    print("❌ 링크 프리뷰 로딩 실패")
+                    return False
+
+                # URL 텍스트를 삭제하지 않고 바로 게시
+                print("\n✅ URL 텍스트와 프리뷰 확인 완료")
+                time.sleep(2)
+
+                # 게시 버튼 클릭
+                try:
+                    submit_btn = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                    )
+                    print("✅ 게시 버튼 발견")
+                    submit_btn.click()
+                    print("✅ 게시 완료")
+                    time.sleep(3)
+                    return True
+                    
+                except Exception as e:
+                    print("❌ 게시 실패:")
+                    print(f"- 오류 내용: {str(e)}")
+                    return False
                 
         except Exception as e:
             print(f"포스팅 실패: {str(e)}")
