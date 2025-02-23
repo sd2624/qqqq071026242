@@ -100,15 +100,71 @@ jobs:
 
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: stable
 
-    - name: Install Chrome and ChromeDriver
+    - name: Configure Network Settings
       run: |
-        # 최신 안정버전 Chrome 설치
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
+        # Proxy configuration
+        echo "Setting up proxy configuration..."
         
+        # SOCKS proxy settings
+        echo "
+        {
+          \"rules\": {
+            \"fallbackProxy\": {
+              \"scheme\": \"socks5\",
+              \"host\": \"127.0.0.1\",
+              \"port\": 1080
+            }
+          },
+          \"mode\": \"fixed_servers\"
+        }" > proxy.json
+        
+        # Set system proxy
+        export ALL_PROXY=socks5://127.0.0.1:1080
+        export HTTPS_PROXY=socks5h://127.0.0.1:1080
+        export HTTP_PROXY=socks5h://127.0.0.1:1080
+        
+        # Network tuning
+        sudo sysctl -w \
+          net.ipv4.tcp_keepalive_time=30 \
+          net.ipv4.tcp_keepalive_intvl=5 \
+          net.ipv4.tcp_keepalive_probes=3 \
+          net.ipv4.tcp_fin_timeout=10 \
+          net.ipv4.tcp_retries2=5
+        
+        # Connection test with retry
+        for i in {1..5}; do
+          echo "Connection test attempt $i..."
+          if curl -x socks5h://127.0.0.1:1080 -m 10 https://www.google.com > /dev/null 2>&1; then
+            echo "Connection test successful!"
+            break
+          else
+            echo "Connection test failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+    - name: Verify Chrome Installation
+      run: |
+        chrome_path=$(which google-chrome)
+        echo "Chrome path: $chrome_path"
+        google-chrome --version
+        
+        # Chrome connection test
+        echo "Testing Chrome with proxy..."
+        google-chrome --proxy-server="socks5://127.0.0.1:1080" \
+          --headless \
+          --disable-gpu \
+          --no-sandbox \
+          --disable-dev-shm-usage \
+          --enable-logging \
+          --v=1 \
+          https://www.google.com 2>&1 | grep -i "error"
+
+    - name: Install ChromeDriver
+      run: |
         # Chrome 버전 확인
         CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
         CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION" | cut -d. -f1)
