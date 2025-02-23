@@ -311,47 +311,43 @@ class BandAutoAction:
                 print("VPN 종료 완료")
                 time.sleep(2)
                 
-                # 새로운 Chrome 옵션 생성 (프록시 없음)
+                # 프록시 설정만 제거 (기존 드라이버 유지)
                 print("프록시 설정 제거 중...")
-                new_options = Options()
-                new_options.add_argument('--no-sandbox')
-                new_options.add_argument('--disable-dev-shm-usage')
-                new_options.add_argument('--disable-gpu')
-                if os.getenv('GITHUB_ACTIONS'):
-                    profile_dir = os.getenv('CHROME_PROFILE_DIR', 'chrome-profile')
-                    new_options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-                    new_options.add_argument('--profile-directory=Default')
                 
-                # 기존 세션 쿠키 저장
-                cookies = self.driver.get_cookies()
+                # CDP를 통한 네트워크 설정 초기화
+                self.driver.execute_cdp_cmd('Network.enable', {})
+                self.driver.execute_cdp_cmd('Network.setBypassServiceWorker', {'bypass': True})
+                self.driver.execute_cdp_cmd('Network.emulateNetworkConditions', {
+                    'offline': False,
+                    'latency': 0,
+                    'downloadThroughput': -1,
+                    'uploadThroughput': -1
+                })
                 
-                # 기존 드라이버 종료
-                old_driver = self.driver
-                self.driver = webdriver.Chrome(options=new_options)
-                self.driver.set_page_load_timeout(30)
+                # 새로운 네트워크 설정 적용
+                print("새로운 네트워크 설정 적용...")
+                self.driver.execute_script("""
+                    window.isProxyDisabled = true;
+                    Object.defineProperty(navigator, 'connection', {
+                        value: {
+                            type: 'ethernet',
+                            effectiveType: '4g',
+                            downlink: 10,
+                            rtt: 50
+                        }
+                    });
+                """)
                 
-                # 밴드 페이지로 이동
-                self.driver.get('https://band.us')
-                time.sleep(2)
+                # 헤더 정리
+                self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {'headers': {}})
                 
-                # 저장된 쿠키 복원
-                for cookie in cookies:
-                    try:
-                        self.driver.add_cookie(cookie)
-                    except:
-                        continue
+                print("네트워크 설정 변경 완료")
                 
-                # 피드 페이지로 이동
-                print("새로운 세션으로 이동 중...")
-                self.driver.get('https://band.us/feed')
+                # 페이지 새로고침하여 설정 적용
+                print("설정 적용을 위해 페이지 새로고침...")
+                self.driver.refresh()
                 time.sleep(3)
                 
-                # 기존 드라이버 종료
-                try:
-                    old_driver.quit()
-                except:
-                    pass
-                    
                 return True
                 
             except Exception as e:
