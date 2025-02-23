@@ -203,75 +203,80 @@ class BandAutoAction:
         try:
             print("\n============== 로그인 시작 ==============")
             
-            # 로그인 페이지로 직접 이동
-            login_url = 'https://auth.band.us/email_login'  # URL 변경
+            # 1. 로그인 페이지로 이동 (버전0과 동일한 URL 사용)
+            login_url = 'https://auth.band.us/login'  # email_login이 아닌 기본 로그인 페이지
             print(f"\n1. 로그인 페이지로 이동: {login_url}")
             self.driver.get(login_url)
-            time.sleep(5)  # 대기 시간 증가
+            time.sleep(3)
             
-            # 이메일 입력
-            try:
-                print("\n2. 이메일 입력...")
-                email_input = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, '#input_email'))
-                )
-                
-                with open(self.config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    email = config.get('email', '')
-                
-                email_input.clear()
-                time.sleep(1)
-                email_input.send_keys(email)
-                print(f"이메일 입력 완료: {email}")
-                time.sleep(2)
-                
-                # 다음 버튼 클릭
-                next_btn = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
-                )
-                next_btn.click()
-                print("다음 버튼 클릭 완료")
-                time.sleep(3)
-            except Exception as e:
-                print(f"이메일 입력 실패: {str(e)}")
-                raise
-
-            # 비밀번호 입력
-            try:
-                print("\n3. 비밀번호 입력...")
-                pw_input = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, '#pw'))
-                )
-                password = config.get('password', '')
-                
-                pw_input.clear()
-                time.sleep(1)
-                pw_input.send_keys(password)
-                print("비밀번호 입력 완료")
-                time.sleep(2)
-                
-                # 로그인 버튼 클릭
-                login_btn = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
-                )
-                login_btn.click()
-                print("로그인 버튼 클릭 완료")
-                time.sleep(5)  # 로그인 처리 대기
-            except Exception as e:
-                print(f"비밀번호 입력/로그인 실패: {str(e)}")
-                raise
-
-            # 로그인 성공 확인
-            print("\n4. 로그인 성공 확인 중...")
-            current_url = self.driver.current_url
+            # 2. 이메일 로그인 버튼 클릭
+            print("\n2. 이메일 로그인 버튼 찾는 중...")
+            email_login_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uButtonRound.-h56.-icoType.-email'))
+            )
+            email_login_btn.click()
+            time.sleep(2)
             
-            if 'auth.band.us' not in current_url:
+            # 3. 이메일 입력
+            print("\n3. 이메일 입력...")
+            email_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'input_email'))
+            )
+            
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                email = config.get('email', '')
+            
+            email_input.clear()
+            time.sleep(1)
+            email_input.send_keys(email)
+            print(f"이메일 입력 완료: {email}")
+            time.sleep(2)
+            
+            # 4. 다음 버튼 클릭
+            next_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+            )
+            next_btn.click()
+            print("다음 버튼 클릭 완료")
+            time.sleep(3)
+            
+            # 5. 비밀번호 입력
+            print("\n5. 비밀번호 입력...")
+            pw_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'pw'))
+            )
+            password = config.get('password', '')
+            
+            pw_input.clear()
+            time.sleep(1)
+            pw_input.send_keys(password)
+            print("비밀번호 입력 완료")
+            time.sleep(2)
+            
+            # 6. 최종 로그인 버튼 클릭
+            login_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
+            )
+            login_btn.click()
+            print("로그인 버튼 클릭 완료")
+            time.sleep(5)
+
+            # 7. band.us/feed로 이동하여 로그인 확인
+            print("\n7. 피드 페이지로 이동 중...")
+            self.driver.get('https://band.us/feed')
+            time.sleep(5)
+            
+            # 8. 피드 페이지 요소 확인
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
+                )
                 print("✅ 로그인 성공!")
-                print(f"현재 URL: {current_url}")
+                print(f"현재 URL: {self.driver.current_url}")
                 return True
-            else:
-                raise Exception("로그인 실패 - 인증 페이지를 벗어나지 못했습니다")
+            except:
+                raise Exception("피드 페이지 로딩 실패")
 
         except Exception as e:
             print("\n============== 로그인 실패 ==============")
