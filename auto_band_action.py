@@ -293,71 +293,91 @@ class BandAutoAction:
             
             # 피드 페이지 로딩 확인
             try:
-                # 더보기 버튼 찾기
-                more_btn = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                )
-                print("더보기 버튼 발견")
-                more_btn.click()
-                print("더보기 버튼 클릭 완료")
-                time.sleep(3)
+                # VPN 종료 먼저 시도
+                print("\nVPN 종료 시도 중...")
+                max_vpn_attempts = 3
+                vpn_stopped = False
                 
-                # VPN 종료
-                print("\nVPN 종료 중...")
-                if os.getenv('GITHUB_ACTIONS'):
-                    subprocess.run(['./vpn-control.sh', 'stop'], 
-                                 stdout=subprocess.DEVNULL, 
-                                 stderr=subprocess.DEVNULL)
-                else:
-                    subprocess.run(['taskkill', '/F', '/IM', 'v2ray.exe'], 
-                                 stdout=subprocess.DEVNULL, 
-                                 stderr=subprocess.DEVNULL)
-                print("VPN 종료 완료")
-                time.sleep(2)
+                for attempt in range(max_vpn_attempts):
+                    try:
+                        if os.getenv('GITHUB_ACTIONS'):
+                            subprocess.run(['./vpn-control.sh', 'stop'], 
+                                         stdout=subprocess.DEVNULL, 
+                                         stderr=subprocess.DEVNULL,
+                                         timeout=10)  # 10초 타임아웃
+                        else:
+                            subprocess.run(['taskkill', '/F', '/IM', 'v2ray.exe'], 
+                                         stdout=subprocess.DEVNULL, 
+                                         stderr=subprocess.DEVNULL,
+                                         timeout=10)
+                        vpn_stopped = True
+                        print(f"VPN 종료 성공 (시도 {attempt + 1}/{max_vpn_attempts})")
+                        break
+                    except:
+                        print(f"VPN 종료 재시도... ({attempt + 1}/{max_vpn_attempts})")
+                        time.sleep(2)
+                
+                if not vpn_stopped:
+                    print("⚠️ VPN 종료 실패, 계속 진행...")
                 
                 # 프록시 설정 제거
-                print("프록시 설정 제거 중...")
+                print("\n프록시 설정 제거 중...")
+                max_proxy_attempts = 3
                 
-                # 1. Chrome 옵션에서 프록시 제거
-                if self.original_options:
-                    new_options = Options()
-                    # 프록시 관련 옵션을 제외한 나머지 옵션 복사
-                    for arg in self.original_options.arguments:
-                        if not arg.startswith('--proxy'):
-                            new_options.add_argument(arg)
-                            
-                    # 새 드라이버 생성
-                    old_driver = self.driver
-                    cookies = old_driver.get_cookies()
-                    
-                    self.driver = webdriver.Chrome(options=new_options)
-                    self.driver.set_page_load_timeout(30)
-                    
-                    # 밴드 페이지로 이동
-                    self.driver.get('https://band.us')
-                    time.sleep(2)
-                    
-                    # 쿠키 복원
-                    for cookie in cookies:
-                        try:
-                            self.driver.add_cookie(cookie)
-                        except:
-                            continue
-                            
-                    # 이전 드라이버 종료
+                for attempt in range(max_proxy_attempts):
                     try:
-                        old_driver.quit()
+                        # Chrome DevTools Protocol을 통한 네트워크 설정 제거
+                        self.driver.execute_cdp_cmd('Network.enable', {})
+                        self.driver.execute_cdp_cmd('Network.emulateNetworkConditions', {
+                            'offline': False,
+                            'latency': 0,
+                            'downloadThroughput': -1,
+                            'uploadThroughput': -1
+                        })
+                        self.driver.execute_cdp_cmd('Network.clearBrowserCache', {})
+                        self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {'headers': {}})
+                        
+                        # 브라우저 네트워크 설정 변경
+                        self.driver.execute_script("""
+                            try {
+                                window.navigator.connection = {
+                                    type: 'ethernet',
+                                    effectiveType: '4g',
+                                    downlink: 10,
+                                    rtt: 50
+                                };
+                            } catch (e) {}
+                        """)
+                        
+                        print(f"프록시 설정 제거 성공 (시도 {attempt + 1}/{max_proxy_attempts})")
+                        break
                     except:
-                        pass
-
-                print("프록시 설정 제거 완료")
+                        print(f"프록시 설정 제거 재시도... ({attempt + 1}/{max_proxy_attempts})")
+                        time.sleep(2)
                 
-                # 피드 페이지로 다시 이동
-                print("피드 페이지로 이동 중...")
-                self.driver.get('https://band.us/feed')
-                time.sleep(3)
+                # 설정 적용을 위해 페이지 새로고침
+                print("\n설정 적용을 위해 새로고침...")
+                self.driver.refresh()
+                time.sleep(5)  # 충분한 대기 시간
                 
-                return True
+                # 더보기 버튼 찾기 및 클릭
+                max_btn_attempts = 3
+                for attempt in range(max_btn_attempts):
+                    try:
+                        more_btn = WebDriverWait(self.driver, 10).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                        )
+                        print("더보기 버튼 발견")
+                        more_btn.click()
+                        print(f"더보기 버튼 클릭 성공 (시도 {attempt + 1}/{max_btn_attempts})")
+                        time.sleep(3)
+                        return True
+                    except:
+                        print(f"더보기 버튼 클릭 재시도... ({attempt + 1}/{max_btn_attempts})")
+                        self.driver.refresh()
+                        time.sleep(3)
+                        
+                return False
                 
             except Exception as e:
                 print(f"피드 페이지 로딩 실패: {str(e)}")
@@ -797,6 +817,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
