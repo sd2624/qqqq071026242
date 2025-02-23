@@ -293,7 +293,7 @@ class BandAutoAction:
             
             # 피드 페이지 로딩 확인
             try:
-                # VPN 종료 먼저 시도
+                # VPN 종료
                 print("\nVPN 종료 시도 중...")
                 max_vpn_attempts = 3
                 vpn_stopped = False
@@ -320,74 +320,70 @@ class BandAutoAction:
                 if not vpn_stopped:
                     print("⚠️ VPN 종료 실패, 계속 진행...")
                 
-                # 프록시 설정 제거
-                print("\n프록시 설정 제거 중...")
-                max_proxy_attempts = 3
+                print("\n프록시 설정 제거를 위해 새 드라이버 생성 중...")
                 
-                for attempt in range(max_proxy_attempts):
+                # 기존 쿠키 저장
+                cookies = self.driver.get_cookies()
+                
+                # 새로운 Chrome 옵션 생성 (프록시 없음)
+                new_options = Options()
+                if os.getenv('GITHUB_ACTIONS'):
+                    profile_dir = os.getenv('CHROME_PROFILE_DIR', 'chrome-profile')
+                    new_options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
+                    new_options.add_argument('--profile-directory=Default')
+                
+                # 기본 옵션 추가
+                new_options.add_argument('--no-sandbox')
+                new_options.add_argument('--disable-dev-shm-usage')
+                new_options.add_argument('--disable-gpu')
+                new_options.add_argument('--disable-features=IsolateOrigins,site-per-process')
+                
+                # 자동화 감지 방지
+                new_options.add_experimental_option('excludeSwitches', ['enable-automation'])
+                new_options.add_experimental_option('useAutomationExtension', False)
+                
+                # 기존 드라이버 저장
+                old_driver = self.driver
+                
+                # 새 드라이버 생성
+                self.driver = webdriver.Chrome(options=new_options)
+                self.driver.set_page_load_timeout(30)
+                
+                # 빈 페이지로 이동
+                print("새 드라이버 초기화...")
+                self.driver.get('about:blank')
+                time.sleep(2)
+                
+                # 쿠키 복원
+                print("쿠키 복원 중...")
+                for cookie in cookies:
                     try:
-                        # Chrome DevTools Protocol을 통한 네트워크 설정 제거
-                        self.driver.execute_cdp_cmd('Network.enable', {})
-                        self.driver.execute_cdp_cmd('Network.emulateNetworkConditions', {
-                            'offline': False,
-                            'latency': 0,
-                            'downloadThroughput': -1,
-                            'uploadThroughput': -1
-                        })
-                        self.driver.execute_cdp_cmd('Network.clearBrowserCache', {})
-                        self.driver.execute_cdp_cmd('Network.setExtraHTTPHeaders', {'headers': {}})
-                        
-                        # 브라우저 네트워크 설정 변경
-                        self.driver.execute_script("""
-                            try {
-                                window.navigator.connection = {
-                                    type: 'ethernet',
-                                    effectiveType: '4g',
-                                    downlink: 10,
-                                    rtt: 50
-                                };
-                            } catch (e) {}
-                        """)
-                        
-                        print(f"프록시 설정 제거 성공 (시도 {attempt + 1}/{max_proxy_attempts})")
-                        break
+                        self.driver.add_cookie(cookie)
                     except:
-                        print(f"프록시 설정 제거 재시도... ({attempt + 1}/{max_proxy_attempts})")
-                        time.sleep(2)
+                        continue
                 
-                # 설정 적용을 위해 페이지 새로고침
-                print("\n설정 적용을 위해 새로고침...")
-                self.driver.refresh()
-                time.sleep(5)  # 충분한 대기 시간
+                # 피드 페이지로 이동
+                print("피드 페이지로 이동...")
+                self.driver.get('https://band.us/feed')
+                time.sleep(5)
                 
-                # 현재 URL 확인 및 피드 페이지로 이동
-                current_url = self.driver.current_url
-                print(f"현재 URL: {current_url}")
+                # 기존 드라이버 종료
+                try:
+                    old_driver.quit()
+                except:
+                    pass
                 
-                if 'band.us/feed' not in current_url:
-                    print("피드 페이지로 이동 중...")
-                    self.driver.get('https://band.us/feed')
-                    time.sleep(5)
+                # 더보기 버튼 찾기
+                print("더보기 버튼 찾는 중...")
+                more_btn = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                )
+                print("더보기 버튼 발견")
+                more_btn.click()
+                print("더보기 버튼 클릭 완료")
+                time.sleep(3)
                 
-                # 더보기 버튼 찾기 및 클릭
-                max_btn_attempts = 3
-                for attempt in range(max_btn_attempts):
-                    try:
-                        more_btn = WebDriverWait(self.driver, 10).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                        )
-                        print("더보기 버튼 발견")
-                        more_btn.click()
-                        print(f"더보기 버튼 클릭 성공 (시도 {attempt + 1}/{max_btn_attempts})")
-                        time.sleep(3)
-                        return True
-                    except:
-                        print(f"더보기 버튼 클릭 재시도... ({attempt + 1}/{max_btn_attempts})")
-                        print("피드 페이지로 다시 이동 중...")
-                        self.driver.get('https://band.us/feed')
-                        time.sleep(3)
-                        
-                return False
+                return True
                 
             except Exception as e:
                 print(f"피드 페이지 로딩 실패: {str(e)}")
