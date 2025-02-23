@@ -99,9 +99,15 @@ jobs:
         curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json
 
     - name: Setup Chrome
-      uses: browser-actions/setup-chrome@latest
-      with:
-        chrome-version: stable
+      run: |
+        echo "Installing Chrome directly..."
+        wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo apt-get install -y /tmp/chrome.deb
+        rm /tmp/chrome.deb
+        
+        # 설치 확인
+        google-chrome --version
+        which google-chrome
 
     - name: Configure Network Settings
       run: |
@@ -148,20 +154,22 @@ jobs:
 
     - name: Verify Chrome Installation
       run: |
-        chrome_path=$(which google-chrome)
-        echo "Chrome path: $chrome_path"
-        google-chrome --version
+        if ! command -v google-chrome &> /dev/null; then
+          echo "Chrome is not installed. Trying alternative installation..."
+          # 대체 설치 방법
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+        fi
         
-        # Chrome connection test
-        echo "Testing Chrome with proxy..."
-        google-chrome --proxy-server="socks5://127.0.0.1:1080" \
-          --headless \
-          --disable-gpu \
-          --no-sandbox \
-          --disable-dev-shm-usage \
-          --enable-logging \
-          --v=1 \
-          https://www.google.com 2>&1 | grep -i "error"
+        # 최종 설치 확인
+        echo "Installed Chrome version:"
+        google-chrome --version
+        echo "Chrome binary location:"
+        which google-chrome
 
     - name: Install ChromeDriver
       run: |
