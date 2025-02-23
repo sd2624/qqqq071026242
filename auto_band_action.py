@@ -58,86 +58,54 @@ class BandAutoAction:
             # 기본 옵션 추가
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-gpu")   # GPU 가속 비활성화
-            options.add_argument("--no-sandbox")    # 샌드박스 비활성화
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
             
-            # GitHub Actions 환경인 경우 추가 설정
+            # WebRTC 활성화 및 미디어 스트림 설정
+            options.add_argument("--use-fake-ui-for-media-stream")
+            options.add_argument("--use-fake-device-for-media-stream")
+            
+            # 프록시 설정
             if os.getenv('GITHUB_ACTIONS'):
-                options.add_argument("--headless=new")  # 최신 headless 모드
-                # DNS 설정 변경 시도
-                try:
-                    os.system('echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf > /dev/null')
-                    print("✅ DNS 변경 완료")
-                except Exception as e:
-                    print(f"⚠️ DNS 변경 실패 (무시됨): {e}")
-
-                # 기존 압축된 프로필 사용
-                profile_dir = "chrome-profile"
-                
-                # 프로필 디렉토리가 없으면 생성
-                if not os.path.exists(profile_dir):
-                    os.makedirs(f"{profile_dir}/Default", exist_ok=True)
-                
-                # 압축된 프로필 해제 (기존 파일 덮어쓰기)
-                if os.path.exists("chrome_profile.zip"):
-                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
-                    
-                # 권한 설정
-                os.system(f"chmod -R 777 {profile_dir}")
-                
-                # Chrome 옵션 설정
-                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-                options.add_argument('--profile-directory=Default')
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--password-store=basic')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
-
+                # GitHub Actions에서는 Shadowsocks 프록시 사용
+                options.add_argument("--proxy-server=socks5://127.0.0.1:1080")
             else:
-                # 로컬 환경에서는 기존 설정 사용
-                timestamp = int(time.time() * 1000)
-                profile_dir = f"chrome_profile_{timestamp}"
-                
-                # 기존 프로필 디렉토리 제거
-                if os.path.exists(profile_dir):
-                    shutil.rmtree(profile_dir)
-                time.sleep(1)
-                
-                # 새 프로필 디렉토리 생성
-                os.makedirs(profile_dir, exist_ok=True)
-                
-                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-                options.add_argument('--profile-directory=Default')
-                
-                # 기본 옵션
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--disable-gpu')
-                options.add_argument('--disable-software-rasterizer')
-                
-                # 프로세스 분리 비활성화
-                options.add_argument('--disable-features=IsolateOrigins,site-per-process')
-                options.add_argument('--disable-site-isolation-trials')
-                
-                # 기타 필요한 설정
-                options.add_argument('--no-first-run')
-                options.add_argument('--no-default-browser-check')
-                options.add_argument('--password-store=basic')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
+                # 로컬 환경에서는 프록시 자동 감지
+                options.add_argument("--proxy-pac-url=http://127.0.0.1:1080/proxy.pac")
+                options.add_argument("--proxy-auto-detect")
+            
+            # 프록시체인 설정 추가
+            os.environ['LD_PRELOAD'] = '/usr/lib/libproxychains.so.3'
+            
+            # 크롬 프로필 설정 (모든 환경에서 동일하게 적용)
+            profile_dir = "chrome-profile"
+            
+            # 프로필 디렉토리가 없으면 생성
+            if not os.path.exists(profile_dir):
+                os.makedirs(f"{profile_dir}/Default", exist_ok=True)
+            
+            # 압축된 프로필 해제
+            if os.path.exists("chrome_profile.zip"):
+                print("✅ 크롬 프로필 압축 해제 시작...")
+                if os.name == 'nt':  # Windows
+                    os.system(f"powershell Expand-Archive -Path chrome_profile.zip -DestinationPath {profile_dir} -Force")
+                else:  # Linux/Mac
+                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
+                print("✅ 크롬 프로필 압축 해제 완료")
+            else:
+                print("⚠️ chrome_profile.zip 파일이 없습니다!")
+            
+            # 프로필 옵션 설정
+            options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
+            options.add_argument('--profile-directory=Default')
+            
+            # 자동화 감지 방지
+            options.add_experimental_option('excludeSwitches', ['enable-automation'])
+            options.add_experimental_option('useAutomationExtension', False)
+            
+            # Headless 모드 설정 (GitHub Actions에서만)
+            if os.getenv('GITHUB_ACTIONS'):
+                options.add_argument("--headless=new")
 
             # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
@@ -146,15 +114,20 @@ class BandAutoAction:
             # 자동화 감지 방지를 위한 추가 JavaScript 실행
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             
-            # 초기 페이지 로드 테스트
-            self.driver.get('about:blank')
-            time.sleep(2)
+            # WebRTC 설정
+            self.driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': '''
+                    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+                        value: () => new Promise((resolve) => { resolve(true); })
+                    });
+                '''
+            })
             
-            print(f"Chrome driver initialized with profile: {profile_dir}")
+            print(f"✅ Chrome driver initialized with profile: {profile_dir}")
             return True
             
         except Exception as e:
-            print(f"Driver setup failed: {str(e)}")
+            print(f"❌ Driver setup failed: {str(e)}")
             if self.driver:
                 try:
                     self.driver.quit()
