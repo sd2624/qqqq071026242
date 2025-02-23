@@ -104,6 +104,7 @@ jobs:
         if [ ! -f "chrome_profile.zip" ]; then
           echo "프로필 다운로드 실패"
           exit 1
+        fi
         
         echo "프로필 다운로드 완료"
         ls -la chrome_profile.zip
