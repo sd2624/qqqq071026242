@@ -390,6 +390,17 @@ jobs:
         TZ: "Asia/Seoul"
         PROXYCHAINS_CONF_FILE: /etc/proxychains4.conf
       run: |
+        # 프록시 테스트 및 설정 확인
+        echo "Testing proxy configuration..."
+        
+        # 직접 Python 실행 (ProxyChains 없이)
+        PYTHONPATH=/opt/hostedtoolcache/Python/3.12.9/x64/lib/python3.12/site-packages \
+        PYTHONUNBUFFERED=1 \
+        HTTP_PROXY=socks5h://127.0.0.1:1080 \
+        HTTPS_PROXY=socks5h://127.0.0.1:1080 \
+        ALL_PROXY=socks5h://127.0.0.1:1080 \
+        python3 auto_band_action.py
+
         # ProxyChains 설정 확인
         cat /etc/proxychains4.conf
         
@@ -610,7 +621,7 @@ jobs:
       run: |
         # 한국 DNS 서버 설정
         echo "nameserver 168.126.63.1" | sudo tee /etc/resolv.conf > /dev/null
-        echo "nameserver 168.126.63.2" | sudo tee -a /etc/resolv.conf > /dev/null
+        echo "nameserver 168.126.63.2" | sudo tee /etc/resolv.conf > /dev/null
         
         # 네트워크 버퍼 및 타임아웃 최적화
         sudo sysctl -w \
