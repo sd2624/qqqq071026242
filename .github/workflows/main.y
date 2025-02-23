@@ -19,22 +19,42 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y unzip shadowsocks-libev
+        sudo apt-get install -y unzip shadowsocks-libev proxychains4
         pip install selenium requests beautifulsoup4 webdriver_manager
-        
-    - name: Setup VPN
+
+    - name: Setup Shadowsocks and VPN
       run: |
-        echo '{
-          "server":"34.64.189.76",
-          "server_port":16978,
-          "password":"Nsy5l8wxxzHg4CXPKwEw6S",
-          "method":"chacha20-ietf-poly1305",
-          "local_address":"127.0.0.1",
-          "local_port":1080
-        }' > ss-config.json
-        ss-local -c ss-config.json -v &
+        # Shadowsocks 설정 파일 생성
+        mkdir -p shadowsocks
+        cat > shadowsocks/config.json << EOF
+        {
+          "server": "34.64.189.76",
+          "server_port": 16978,
+          "password": "Nsy5l8wxxzHg4CXPKwEw6S",
+          "method": "chacha20-ietf-poly1305",
+          "local_address": "127.0.0.1",
+          "local_port": 1080,
+          "timeout": 300,
+          "fast_open": true
+        }
+        EOF
+        
+        # Shadowsocks 클라이언트 실행
+        nohup sslocal -c shadowsocks/config.json --udp-relay -l 1080 &
         sleep 5
-        curl --socks5 127.0.0.1:1080 http://ip-api.com/json
+        
+        # 프록시 환경변수 설정
+        export HTTPS_PROXY=socks5h://127.0.0.1:1080
+        export HTTP_PROXY=socks5h://127.0.0.1:1080
+        echo "HTTPS_PROXY=socks5h://127.0.0.1:1080" >> $GITHUB_ENV
+        echo "HTTP_PROXY=socks5h://127.0.0.1:1080" >> $GITHUB_ENV
+        
+        # 한국 DNS 설정
+        echo "nameserver 168.126.63.1" | sudo tee /etc/resolv.conf > /dev/null
+        echo "nameserver 168.126.63.2" | sudo tee -a /etc/resolv.conf > /dev/null
+        
+        # 연결 테스트
+        curl -x socks5h://127.0.0.1:1080 http://ip-api.com/json
         
     - name: Setup Chrome
       uses: browser-actions/setup-chrome@latest
@@ -177,7 +197,7 @@ jobs:
         # 중요 디렉토리 권한 설정
         for dir in "Cache" "Local Storage" "Session Storage" "Network"; do
           dir_path="$PROFILE_DIR/Default/$dir"
-          if [ -d "$dir_path" ]; then
+          if [ -d "$dir_path"]; then
             find "$dir_path" -type d -exec chmod 755 {} \;
             find "$dir_path" -type f -exec chmod 644 {} \;
           fi
@@ -218,10 +238,13 @@ jobs:
         XDG_CONFIG_HOME: ${CHROME_PROFILE_DIR}
         DISPLAY: :99
         ALL_PROXY: "socks5://127.0.0.1:1080"
+        HTTPS_PROXY: "socks5h://127.0.0.1:1080"
+        HTTP_PROXY: "socks5h://127.0.0.1:1080"
         CHROME_REMOTE_DEBUGGING_PORT: "9222"
         PYTHONUNBUFFERED: 1
         TZ: "Asia/Seoul"
       run: |
+        # Chrome 옵션에 프록시 설정 추가
         export CHROME_OPTIONS="
           --user-data-dir=${CHROME_PROFILE_DIR}
           --profile-directory=Default
@@ -229,27 +252,12 @@ jobs:
           --disable-dev-shm-usage
           --password-store=basic
           --disable-gpu
-          --disable-software-rasterizer
+          --proxy-server=socks5://127.0.0.1:1080
         "
         
-        # Chrome 옵션 최소화
-        export CHROME_OPTIONS="
-          --user-data-dir=${CHROME_PROFILE_DIR}
-          --profile-directory=Default
-          --no-sandbox
-          --disable-dev-shm-usage
-          --disable-gpu
-          --password-store=basic
-          --disable-background-networking
-          --disable-default-apps
-          --disable-sync
-          --no-first-run
-        "
-        
-        # 프로필 디버그
-        echo "Chrome 프로필 위치: ${CHROME_PROFILE_DIR}"
-        ls -la ${CHROME_PROFILE_DIR}/Default/
-        
+        # 스크립트 실행
+        PYTHONUNBUFFERED=1 python auto_band_action.py
+
         echo -e "\n\033[1;36m=== 밴드 자동 포스팅 시작 ===\033[0m"
         echo -e "\033[1;33m현재 시각: $(date '+%Y-%m-%d %H:%M:%S')\033[0m"
         echo -e "\033[1;36m======================================\033[0m\n"
