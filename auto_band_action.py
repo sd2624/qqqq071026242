@@ -455,43 +455,113 @@ class BandAutoAction:
             
             # 에디터 찾기
             print("에디터 찾는 중...")
-            editor = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
-            )
+            editor_selectors = [
+                'div.contentEditor._richEditor.skin3',
+                'div[contenteditable="true"][aria-labelledby="postWriteFormPlaceholderText"]',
+                'div.contentEditor[contenteditable="true"]'
+            ]
+            
+            editor = None
+            for selector in editor_selectors:
+                try:
+                    editor = WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    if editor and editor.is_displayed():
+                        print(f"✅ 에디터 발견: {selector}")
+                        break
+                except:
+                    continue
+                    
+            if not editor:
+                raise Exception("에디터를 찾을 수 없습니다")
+            
+            # 기존 텍스트 클리어
+            editor.clear()
+            time.sleep(1)
+            
+            # URL 입력 전 에디터 클릭
+            self.driver.execute_script("arguments[0].click();", editor)
+            time.sleep(1)
             
             # URL 입력
             print(f"URL 입력 시작: {post_url}")
             editor.send_keys(post_url)
             print("URL 입력 완료")
 
-            # 링크 프리뷰 로딩 확인
-            print("\n링크 프리뷰 로딩 확인 중...")
-            try:
-                preview = WebDriverWait(self.driver, 15).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-                )
-                print("✅ 링크 프리뷰 로딩 완료")
-            except Exception as e:
-                print(f"❌ 링크 프리뷰 로딩 실패: {str(e)}")
+            # URL 입력 검증
+            print("\nURL 입력 및 검증 시작...")
+            max_attempts = 3
+            url_input_success = False
+            
+            for attempt in range(max_attempts):
+                try:
+                    # 에디터 내용 초기화
+                    editor.clear()
+                    time.sleep(1)
+                    
+                    # 에디터 클릭하여 포커스
+                    self.driver.execute_script("arguments[0].click();", editor)
+                    time.sleep(1)
+                    
+                    # URL 입력
+                    print(f"URL 입력 시도 {attempt + 1}/{max_attempts}")
+                    editor.send_keys(post_url)
+                    
+                    # 입력된 내용 확인
+                    actual_content = editor.get_attribute('innerText').strip()
+                    if post_url in actual_content:
+                        print("✅ URL 입력 확인 완료")
+                        url_input_success = True
+                        break
+                    else:
+                        print(f"❌ URL 입력 불일치 (시도 {attempt + 1})")
+                        time.sleep(2)
+                except Exception as e:
+                    print(f"URL 입력 중 오류 발생 (시도 {attempt + 1}): {str(e)}")
+                    time.sleep(2)
+
+            if not url_input_success:
+                print("❌ URL 입력 실패")
                 return False
 
-            # URL 텍스트만 삭제
+            # 링크 프리뷰 로딩 대기
+            print("\n링크 프리뷰 로딩 대기 중...")
+            preview_found = False
+            max_wait = 30  # 최대 30초 대기
+            start_time = time.time()
+            
+            while time.time() - start_time < max_wait:
+                try:
+                    preview = self.driver.find_element(By.CSS_SELECTOR, 'div.urlPreview')
+                    if preview.is_displayed():
+                        print("✅ 링크 프리뷰 발견")
+                        preview_found = True
+                        break
+                except:
+                    print(f"프리뷰 로딩 중... ({int(time.time() - start_time)}초)")
+                    time.sleep(2)
+
+            if not preview_found:
+                print("❌ 링크 프리뷰 로딩 실패")
+                return False
+
+            # URL 텍스트 삭제 및 프리뷰 유지 확인
             try:
                 print("\nURL 텍스트 삭제 시작")
-                editor = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
-                )
-                # URL 텍스트 선택 및 삭제
                 editor.clear()
-                print("✅ URL 텍스트 삭제 완료")
+                time.sleep(2)
                 
-                # 프리뷰가 여전히 존재하는지 한번 더 확인
-                preview = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-                )
-                print("✅ 링크 프리뷰 유지 확인")
+                # 프리뷰 유지 확인
+                preview = self.driver.find_element(By.CSS_SELECTOR, 'div.urlPreview')
+                if preview.is_displayed():
+                    print("✅ 프리뷰 유지 확인")
+                else:
+                    print("❌ 프리뷰 사라짐")
+                    return False
+                    
             except Exception as e:
-                print(f"❌ URL 텍스트 삭제 또는 프리뷰 확인 실패: {str(e)}")
+                print(f"❌ URL 텍스트 삭제 실패: {str(e)}")
                 return False
 
             time.sleep(2)  # 안정성을 위한 추가 대기
@@ -643,6 +713,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+`
 
 
 
