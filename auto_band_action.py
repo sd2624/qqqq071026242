@@ -506,15 +506,8 @@ class BandAutoAction:
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
 
-            # 프리뷰 생성 확인
-            print("프리뷰 확인 중...")
-            preview = WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-            )
-            print("✅ 프리뷰 생성됨")
-
-            # URL 텍스트 선택 후 삭제
-            print("URL 텍스트 선택 중...")
+            # JavaScript로 텍스트 선택 후 삭제
+            print("URL 텍스트 선택 후 삭제...")
             self.driver.execute_script("""
                 var editor = document.querySelector('div[contenteditable="true"]');
                 var range = document.createRange();
@@ -525,15 +518,10 @@ class BandAutoAction:
             """)
             time.sleep(1)
             editor.send_keys(Keys.DELETE)
-            print("URL 텍스트 삭제 완료")
+            print("✅ URL 텍스트 삭제 완료")
             time.sleep(1)
 
-            # 프리뷰 유지 확인
-            if not preview.is_displayed():
-                raise Exception("프리뷰가 사라졌습니다")
-            print("✅ 프리뷰 유지 확인")
-
-            # 게시 버튼 클릭
+            # 바로 게시 버튼 클릭
             submit_btn = WebDriverWait(self.driver, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
             )
@@ -541,6 +529,13 @@ class BandAutoAction:
             submit_btn.click()
             print("✅ 게시 버튼 클릭")
             time.sleep(3)
+
+            # 프리뷰 생성 확인
+            print("프리뷰 확인 중...")
+            preview = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
+            )
+            print("✅ 프리뷰 생성됨")
 
             # 게시판 선택 팝업 처리
             try:
