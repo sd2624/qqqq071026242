@@ -538,37 +538,60 @@ def main():
         target_band_url = 'https://band.us/band/96689964'
         print(f"\n타겟 밴드로 이동 중... {target_band_url}")
         bot.driver.get(target_band_url)
-        time.sleep(5)
+        time.sleep(10)  # 페이지 로딩 대기 시간 증가
         
         # 현재 URL 확인
         current_url = bot.driver.current_url
+        print(f"현재 URL: {current_url}")
+        
         if 'auth.band.us/login' in current_url:
             raise Exception("로그인이 필요합니다")
             
-        print(f"현재 URL: {current_url}")
-        
-        # 글쓰기 버튼 클릭
+        # 페이지가 완전히 로드될 때까지 대기
         try:
+            print("글쓰기 버튼 찾는 중...")
+            write_btn = WebDriverWait(bot.driver, 20).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'button._btnPostWrite'))
+            )
+            
+            # 버튼이 클릭 가능한 상태가 될 때까지 대기
             write_btn = WebDriverWait(bot.driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button._btnPostWrite'))
             )
             print("글쓰기 버튼 발견")
-            write_btn.click()
-            time.sleep(3)
             
-            # 글쓰기 에디터 확인
+            # JavaScript로 버튼 클릭
+            bot.driver.execute_script("arguments[0].click();", write_btn)
+            print("글쓰기 버튼 클릭 완료")
+            time.sleep(5)  # 에디터 로딩 대기
+            
+            # 에디터 찾기
             editor = WebDriverWait(bot.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.contentEditor[contenteditable="true"]'))
             )
             print("에디터 발견")
             
-            # URL 입력 테스트
-            test_url = "https://example.com"  # 실제 URL로 교체 필요
+            # 에디터가 활성화될 때까지 대기
+            editor = WebDriverWait(bot.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'div.contentEditor[contenteditable="true"]'))
+            )
+            
+            # 에디터 클릭 및 URL 입력
+            test_url = "https://example.com"
+            print(f"URL 입력 시작: {test_url}")
+            bot.driver.execute_script("arguments[0].click();", editor)
+            time.sleep(2)
             editor.send_keys(test_url)
-            print(f"URL 입력 완료: {test_url}")
-            time.sleep(5)
+            print("URL 입력 완료")
+            
+            # 프리뷰 로딩 대기
+            time.sleep(10)
+            print("프리뷰 대기 완료")
             
         except Exception as e:
+            print(f"\n글쓰기 처리 중 오류 발생:")
+            print(f"마지막 URL: {bot.driver.current_url}")
+            print(f"오류 내용: {str(e)}")
             raise Exception(f"글쓰기 버튼 처리 실패: {str(e)}")
             
     except Exception as e:
