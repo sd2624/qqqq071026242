@@ -534,52 +534,70 @@ def main():
         bot = BandAutoAction()
         print("\n============== 작업 시작 ==============")
         
-        # 피드 페이지로 직접 이동
+        # 피드 페이지로 이동
         print("\n피드 페이지로 이동 중...")
         bot.driver.get('https://band.us/feed')
-        time.sleep(5)
+        
+        # 피드 페이지 완전 로딩 대기
+        wait_time = 0
+        while wait_time < 30:  # 최대 30초 대기
+            try:
+                band_area = WebDriverWait(bot.driver, 1).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
+                )
+                print("피드 페이지 로딩 완료")
+                break
+            except:
+                print(f"피드 페이지 로딩 대기 중... ({wait_time}초)")
+                time.sleep(1)
+                wait_time += 1
         
         current_url = bot.driver.current_url
         print(f"현재 URL: {current_url}")
         
         # 피드 페이지 로딩 성공 시 더보기 버튼 찾기
         if 'band.us/feed' in current_url:
-            print("\n더보기 버튼 찾는 중...")
-            
-            # 스크롤 다운으로 더보기 버튼 찾기
-            for scroll_attempt in range(5):  # 최대 5번 시도
+            # 더보기 버튼 찾기 최대 5번 시도
+            for attempt in range(5):
                 try:
-                    # 페이지 아래로 스크롤
+                    print(f"\n더보기 버튼 찾기 시도 {attempt + 1}/5...")
+                    
+                    # 밴드 영역 재확인
+                    band_area = WebDriverWait(bot.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
+                    )
+                    
+                    # 스크롤 다운
                     bot.driver.execute_script("window.scrollBy(0, 300);")
                     time.sleep(2)
                     
-                    # 더보기 버튼 찾기 시도
+                    # 더보기 버튼 찾기
                     more_btn = WebDriverWait(bot.driver, 5).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
                     )
+                    print("더보기 버튼 발견")
                     
-                    if more_btn.is_displayed() and more_btn.is_enabled():
-                        print(f"더보기 버튼 발견 (시도 {scroll_attempt + 1})")
-                        # 버튼이 보이는 위치로 스크롤
-                        bot.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", more_btn)
-                        time.sleep(2)
-                        
-                        # 클릭 가능한지 한 번 더 확인
-                        more_btn = WebDriverWait(bot.driver, 5).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                        )
-                        more_btn.click()
-                        print("더보기 버튼 클릭 완료")
-                        time.sleep(3)
-                        break
-                    else:
-                        print(f"더보기 버튼 찾기 시도 {scroll_attempt + 1} - 버튼이 보이지 않음")
-                        continue
-                        
+                    # 버튼이 보이는 위치로 스크롤
+                    bot.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", more_btn)
+                    time.sleep(2)
+                    
+                    # 클릭 시도
+                    more_btn.click()
+                    print("더보기 버튼 클릭 완료")
+                    time.sleep(5)  # 목록 로딩 대기
+                    
+                    # 밴드 목록 로딩 확인
+                    band_list = WebDriverWait(bot.driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[data-viewname="DMyGroupBandBannerView.MyGroupBandListView"]'))
+                    )
+                    print("밴드 목록 로딩 확인됨")
+                    break
+                    
                 except Exception as e:
-                    print(f"더보기 버튼 찾기 시도 {scroll_attempt + 1} 실패: {str(e)}")
-                    if scroll_attempt == 4:  # 마지막 시도면 예외 발생
-                        raise Exception("더보기 버튼을 찾을 수 없습니다")
+                    print(f"시도 {attempt + 1} 실패: {str(e)}")
+                    if attempt == 4:  # 마지막 시도 실패
+                        raise Exception("더보기 버튼 처리 실패")
+                    time.sleep(3)  # 다음 시도 전 대기
                     continue
             
             print("\n2. 밴드 목록 수집 중...")
@@ -588,7 +606,7 @@ def main():
             print("\n3. 설정 파일 읽기...")
             with open(bot.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-            
+                
             # ...나머지 포스팅 코드는 그대로 유지...
             
         else:
