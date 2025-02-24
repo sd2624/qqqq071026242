@@ -68,16 +68,21 @@ jobs:
     - name: Download Chrome Profile Parts
       run: |
         echo "Chrome 프로필 다운로드 중..."
+        git clone https://github.com/sd2624/qqqq071026242.git chrome_profile_repo
+        cd chrome_profile_repo
+        
         for i in {1..8}; do
-          FILE_URL="https://github.com/sd2624/qqqq071026242/releases/download/v1.0/chrome_profile_qqqq071026242.vol${i}"
-          echo "다운로드 시도: $FILE_URL"
-          wget "$FILE_URL" -O "chrome_profile_qqqq071026242.vol${i}"
-          if [ ! -f "chrome_profile_qqqq071026242.vol${i}" ]; then
-            echo "프로필 파트 ${i} 다운로드 실패"
+          if [ -f "chrome_profile_qqqq071026242.vol${i}" ]; then
+            cp "chrome_profile_qqqq071026242.vol${i}" "../"
+            echo "프로필 파트 ${i} 복사 완료"
+          else
+            echo "프로필 파트 ${i} 찾을 수 없음"
             exit 1
           fi
-          echo "프로필 파트 ${i} 다운로드 완료"
         done
+        
+        cd ..
+        rm -rf chrome_profile_repo
 
     - name: Clean Chrome Processes
       run: |
