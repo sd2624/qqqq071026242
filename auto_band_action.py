@@ -506,7 +506,13 @@ class BandAutoAction:
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
 
-            # URL 텍스트 백스페이스로 삭제
+            # 커서 오른쪽으로 두 칸 이동 후 백스페이스로 삭제
+            print("커서 이동 중...")
+            editor.send_keys(Keys.RIGHT)
+            time.sleep(0.5)
+            editor.send_keys(Keys.RIGHT)
+            time.sleep(0.5)
+            
             print(f"URL 텍스트 백스페이스로 삭제 중... (길이: {len(fixed_url)})")
             for _ in range(len(fixed_url)):
                 editor.send_keys(Keys.BACKSPACE)
