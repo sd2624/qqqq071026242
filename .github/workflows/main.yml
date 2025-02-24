@@ -69,7 +69,9 @@ jobs:
       run: |
         echo "Chrome 프로필 다운로드 중..."
         for i in {1..8}; do
-          wget "https://raw.githubusercontent.com/sd2624/qqqq071026242/main/chrome_profile_qqqq071026242.vol${i}" -O "chrome_profile_qqqq071026242.vol${i}"
+          FILE_URL="https://github.com/sd2624/qqqq071026242/releases/download/v1.0/chrome_profile_qqqq071026242.vol${i}"
+          echo "다운로드 시도: $FILE_URL"
+          wget "$FILE_URL" -O "chrome_profile_qqqq071026242.vol${i}"
           if [ ! -f "chrome_profile_qqqq071026242.vol${i}" ]; then
             echo "프로필 파트 ${i} 다운로드 실패"
             exit 1
