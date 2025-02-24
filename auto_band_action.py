@@ -511,13 +511,35 @@ class BandAutoAction:
                 editor.clear()
                 time.sleep(2)
                 
-                # 게시 버튼 클릭
+                # 첫 번째 게시 버튼 클릭
                 submit_btn = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
                 )
                 submit_btn.click()
-                print("✅ 게시 완료")
+                print("✅ 첫 번째 게시 버튼 클릭")
                 time.sleep(3)
+                
+                # 게시판 선택 팝업 처리
+                try:
+                    # 게시판 선택 팝업의 첫 번째 게시판 선택
+                    first_board = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'ul.boardList li:first-child button'))
+                    )
+                    first_board.click()
+                    print("✅ 첫 번째 게시판 선택")
+                    time.sleep(2)
+                    
+                    # 최종 게시 버튼 클릭
+                    final_submit = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                    )
+                    final_submit.click()
+                    print("✅ 최종 게시 완료")
+                    time.sleep(3)
+                    
+                except Exception as e:
+                    print(f"게시판 선택 팝업 없음 (기본 게시판에 게시 완료)")
+                
                 return True
                 
             return False
