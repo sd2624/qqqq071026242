@@ -3,8 +3,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
 import os
 import json
 import time
@@ -12,6 +10,7 @@ import random
 import subprocess
 import shutil
 import requests
+from selenium.webdriver.common.keys import Keys  # Keys import 추가
 
 class BandAutoAction:
     def __init__(self):
@@ -417,12 +416,20 @@ class BandAutoAction:
             print(f"\n밴드 목록 수집 실패: {str(e)}")
             raise
 
-    def post_to_band(self, band_info):  # post_url과 url_number 매개변수 제거
+    def post_to_band(self, band_info, post_url, url_number):
+        """밴드에 포스팅"""
         try:
+            print("\n" + "="*50)
+            print(f"현재 작업 중인 URL #{url_number}")
+            print(f"URL 주소: {post_url}")
+            print(f"포스팅 밴드: {band_info['name']}")
+            print(f"밴드 주소: {band_info['url']}")
+            print("="*50 + "\n")
+            
             # 밴드로 이동
-            if not self.navigate_to_band(band_info):
-                return False
-                
+            self.driver.get(band_info['url'])
+            time.sleep(5)
+            
             # 글쓰기 버튼 찾기
             write_btn = None
             write_btn_selectors = [
@@ -443,42 +450,98 @@ class BandAutoAction:
             if not write_btn:
                 raise Exception("글쓰기 버튼을 찾을 수 없습니다")
                 
+            print("글쓰기 버튼 클릭...")
             write_btn.click()
             time.sleep(3)
             
+            # 게시판 선택 버튼 찾기 및 클릭
+            try:
+                board_select_btn = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton._btnSelectBoard'))
+                )
+                board_select_btn.click()
+                print("게시판 선택 버튼 클릭")
+                time.sleep(2)
+                
+                # 첫 번째 게시판 선택
+                first_board = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'ul.boardList li:first-child button'))
+                )
+                first_board.click()
+                print("첫 번째 게시판 선택됨")
+                time.sleep(2)
+            except Exception as e:
+                print(f"게시판 선택 실패 (기본 게시판 사용): {str(e)}")
+            
             # 에디터 찾기
-            editor = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
-            )
+            print("에디터 찾는 중...")
+            editor_selectors = [
+                'div.contentEditor._richEditor.skin3',
+                'div[contenteditable="true"][aria-labelledby="postWriteFormPlaceholderText"]',
+                'div.contentEditor[contenteditable="true"]'
+            ]
             
-            # URL 입력
+            editor = None
+            for selector in editor_selectors:
+                try:
+                    editor = WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    if (editor and editor.is_displayed()):
+                        print(f"✅ 에디터 발견: {selector}")
+                        break
+                except:
+                    continue
+                    
+            if not editor:
+                raise Exception("에디터를 찾을 수 없습니다")
+            
+            # 기존 텍스트 클리어
+            editor.clear()
+            time.sleep(1)
+            
+            # URL 입력 전 에디터 클릭
+            self.driver.execute_script("arguments[0].click();", editor)
+            time.sleep(1)
+            
+            # 고정 URL 입력
             fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
-            editor.click()
-            editor.clear()
+            print(f"고정 URL 입력: {fixed_url}")
             editor.send_keys(fixed_url)
+            print("URL 입력 완료")
             
-            # 엔터 입력
+            # 엔터키 입력 및 대기
             editor.send_keys(Keys.ENTER)
+            print("엔터키 입력")
+            time.sleep(10)  # 10초 대기
             
-            # 10초 대기
-            print("10초 대기 시작...")
-            time.sleep(10)
-            print("대기 완료")
+            # 프리뷰 확인
+            try:
+                preview = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
+                )
+                if preview.is_displayed():
+                    print("✅ 프리뷰 확인됨")
+                    
+                    # 텍스트만 삭제
+                    editor.clear()
+                    time.sleep(1)
+                    print("✅ 텍스트 삭제됨")
+                    
+                    # 게시 버튼 클릭
+                    submit_btn = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                    )
+                    submit_btn.click()
+                    print("✅ 게시 완료")
+                    time.sleep(3)
+                    return True
+                    
+            except Exception as e:
+                print(f"❌ 프리뷰 확인 실패: {str(e)}")
+                return False
             
-            # URL 텍스트만 삭제 (프리뷰 유지)
-            editor.clear()
-            print("URL 텍스트 삭제 완료")
-            
-            # 게시 버튼 클릭
-            submit_btn = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-            )
-            time.sleep(2)
-            submit_btn.click()
-            print("게시 완료")
-            time.sleep(3)
-            
-            return True
+            return False
             
         except Exception as e:
             print(f"포스팅 실패: {str(e)}")
@@ -520,67 +583,28 @@ def main():
         with open(bot.config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
             
-        # 빈 URL을 제외한 URL 목록 생성
-        urls = []
-        for i in range(1, 31):
-            url = config.get(f'post_url_{i}', '').strip()
-            if url:
-                urls.append((i, url))  # URL과 함께 인덱스도 저장
-                
-        if not urls:
-            print("포스팅할 URL이 없습니다!")
-            return
-            
-        print(f"포스팅할 URL 수: {len(urls)}개")
+        success_count = 0
         
-        # 각 URL 순차적으로 처리 (1시간 간격)
-        for url_idx, (url_num, post_url) in enumerate(urls, 1):
-            print(f"\n{'='*60}")
-            print(f"URL {url_num}/{len(urls)} 포스팅 시작")
-            print(f"현재 URL: {post_url}")
-            print(f"{'='*60}\n")
-            success_count = 0
+        # 모든 밴드에 포스팅
+        for band_idx, band in enumerate(bands, 1):
+            if bot.post_to_band(band, None, band_idx):
+                success_count += 1
             
-            # 해당 URL로 모든 밴드에 포스팅
-            for band_idx, band in enumerate(bands, 1):
-                if bot.post_to_band(band):  # post_url과 url_number 인자 제거
-                    success_count += 1
-                
-                # 다음 밴드로 이동 전 4~6분 랜덤 대기
-                if band_idx < len(bands):
-                    wait_time = random.randint(240, 360)  # 4분(240초) ~ 6분(360초)
-                    print(f"\n현재 진행 상황:")
-                    print(f"- URL {url_num}/{len(urls)}")
-                    print(f"- 현재 URL: {post_url}")
-                    print(f"- 밴드 진행: {band_idx}/{len(bands)}")
-                    print(f"- 성공: {success_count}회")
-                    print(f"다음 밴드로 이동 전 {wait_time}초({wait_time/60:.1f}분) 대기...")
-                    time.sleep(wait_time)
-            
-            print(f"\nURL {url_num} 포스팅 통계:")
-            print(f"- 작업한 URL: {post_url}")
-            print(f"- 총 시도: {len(bands)}회")
-            print(f"- 성공: {success_count}회")
-            print(f"- 실패: {len(bands) - success_count}회")
-            
-            # 다음 URL로 넘어가기 전에 1시간 대기
-            if url_idx < len(urls):
-                next_url = urls[url_idx][1]
-                wait_time = 3600  # 1시간 = 3600초
-                print(f"\n다음 URL 정보:")
-                print(f"- 다음 URL 번호: {urls[url_idx][0]}")
-                print(f"- 다음 URL 주소: {next_url}")
-                print(f"- 대기 시작: 1시간")
-                
-                # 1분 단위로 남은 시간 표시
-                while wait_time > 0:
-                    hours = wait_time // 3600
-                    minutes = (wait_time % 3600) // 60
-                    print(f"남은 시간: {hours}시간 {minutes}분 | 다음 URL: {next_url}")
-                    time.sleep(60)
-                    wait_time -= 60
+            # 다음 밴드로 이동 전 4~6분 랜덤 대기
+            if band_idx < len(bands):
+                wait_time = random.randint(240, 360)  # 4분(240초) ~ 6분(360초)
+                print(f"\n현재 진행 상황:")
+                print(f"- 밴드 진행: {band_idx}/{len(bands)}")
+                print(f"- 성공: {success_count}회")
+                print(f"다음 밴드로 이동 전 {wait_time}초({wait_time/60:.1f}분) 대기...")
+                time.sleep(wait_time)
         
-        print("\n============== 모든 URL 작업 완료 ==============")
+        print(f"\n포스팅 통계:")
+        print(f"- 총 시도: {len(bands)}회")
+        print(f"- 성공: {success_count}회")
+        print(f"- 실패: {len(bands) - success_count}회")
+        
+        print("\n============== 모든 작업 완료 ==============")
         
     except Exception as e:
         print(f"\n============== 오류 발생 ==============")
