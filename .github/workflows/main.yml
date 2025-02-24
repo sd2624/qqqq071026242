@@ -51,9 +51,20 @@ jobs:
 
     - name: Extract Chrome Profile
       run: |
+        # 프로필 디렉토리 생성 및 권한 설정
         mkdir -p chrome-profile/Default
+        chmod -R 777 chrome-profile
+        
+        # 프로필 압축 해제
+        echo "Chrome 프로필 압축 해제 시작..."
         unzip -o chrome_profile.zip -d chrome-profile
         chmod -R 777 chrome-profile
+        
+        # 압축 해제 결과 확인
+        echo "압축 해제된 파일 목록:"
+        ls -la chrome-profile/Default/
+        
+        # 환경 변수 설정
         echo "CHROME_PROFILE_DIR=$(pwd)/chrome-profile" >> $GITHUB_ENV
 
     - name: Start Xvfb
