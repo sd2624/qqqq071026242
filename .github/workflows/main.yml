@@ -52,29 +52,27 @@ jobs:
     - name: Extract Chrome Profile
       run: |
         # 프로필 디렉토리 설정
+        echo "Chrome 프로필 설정..."
         mkdir -p chrome-profile/Default
+        chmod -R 777 chrome-profile
         
-        # 프로필 압축 해제
-        echo "Chrome 프로필 설정 시작..."
+        # 압축 해제 및 권한 설정
         unzip -o chrome_profile.zip -d chrome-profile
         chmod -R 777 chrome-profile
         
-        # 필수 파일 확인
-        echo "필수 파일 체크:"
-        for file in Preferences Cookies "Login Data" "Web Data"; do
-          if [ -f "chrome-profile/Default/$file" ]; then
-            echo "✓ $file exists"
+        # 쿠키 파일 확인
+        cd chrome-profile/Default
+        
+        for file in Cookies "Login Data" "Web Data" Preferences; do
+          if [ -f "$file" ]; then
+            size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file")
+            echo "✓ $file exists: $size bytes"
           else
             echo "✗ $file missing"
           fi
         done
         
-        # 디렉토리 구조 출력
-        echo -e "\n디렉토리 구조:"
-        ls -la chrome-profile/Default/
-        
-        # 환경 변수 설정
-        echo "CHROME_PROFILE_DIR=$(pwd)/chrome-profile" >> $GITHUB_ENV
+        echo "CHROME_PROFILE_DIR=$(pwd)" >> $GITHUB_ENV
 
     - name: Start Xvfb
       run: Xvfb :99 -screen 0 1920x1080x24 &
