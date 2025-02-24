@@ -506,13 +506,12 @@ class BandAutoAction:
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
 
-            # URL 텍스트만 선택해서 삭제 (프리뷰는 유지)
-            print("URL 텍스트만 선택 삭제...")
-            editor.send_keys(Keys.CONTROL + 'a')  # 전체 선택
-            time.sleep(1)
-            editor.send_keys(Keys.DELETE)  # 선택된 텍스트 삭제
-            time.sleep(1)
-            print("URL 텍스트 삭제 완료 (프리뷰 유지)")
+            # URL 텍스트 백스페이스로 삭제
+            print("URL 텍스트 백스페이스로 삭제 중...")
+            for _ in range(len(fixed_url)):
+                editor.send_keys(Keys.BACKSPACE)
+                time.sleep(0.1)  # 약간의 딜레이
+            print("URL 텍스트 삭제 완료")
 
             try:
                 # 프리뷰 요소 확인
