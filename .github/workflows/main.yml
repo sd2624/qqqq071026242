@@ -51,17 +51,26 @@ jobs:
 
     - name: Extract Chrome Profile
       run: |
-        # 프로필 디렉토리 생성 및 권한 설정
+        # 프로필 디렉토리 설정
         mkdir -p chrome-profile/Default
-        chmod -R 777 chrome-profile
         
         # 프로필 압축 해제
-        echo "Chrome 프로필 압축 해제 시작..."
+        echo "Chrome 프로필 설정 시작..."
         unzip -o chrome_profile.zip -d chrome-profile
         chmod -R 777 chrome-profile
         
-        # 압축 해제 결과 확인
-        echo "압축 해제된 파일 목록:"
+        # 필수 파일 확인
+        echo "필수 파일 체크:"
+        for file in Preferences Cookies "Login Data" "Web Data"; do
+          if [ -f "chrome-profile/Default/$file" ]; then
+            echo "✓ $file exists"
+          else
+            echo "✗ $file missing"
+          fi
+        done
+        
+        # 디렉토리 구조 출력
+        echo -e "\n디렉토리 구조:"
         ls -la chrome-profile/Default/
         
         # 환경 변수 설정
