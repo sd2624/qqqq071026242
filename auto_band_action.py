@@ -34,15 +34,12 @@ class BandAutoAction:
                 if not os.path.exists(profile_dir):
                     os.makedirs(f"{profile_dir}/Default", exist_ok=True)
                 
-                # vol1~vol8 egg 파일 처리
-                for i in range(1, 9):  # 1부터 8까지
-                    egg_file = f"chrome_profile_qqqq071026242.vol{i}"
-                    if os.path.exists(egg_file):
-                        print(f"Extracting {egg_file}...")
-                        # egg 파일 압축 해제
-                        subprocess.run(['unzip', '-o', egg_file, '-d', profile_dir], check=True)
-                    else:
-                        print(f"Warning: {egg_file} not found")
+                # chrome_profile.zip 파일 처리
+                if os.path.exists("chrome_profile.zip"):
+                    print("chrome_profile.zip 추출 중...")
+                    subprocess.run(['unzip', '-o', 'chrome_profile.zip', '-d', profile_dir], check=True)
+                else:
+                    print("Warning: chrome_profile.zip not found")
                         
                 # 권한 설정
                 os.system(f"chmod -R 777 {profile_dir}")
