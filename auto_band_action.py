@@ -30,53 +30,44 @@ class BandAutoAction:
             profile_dir = os.path.abspath("chrome-profile")
             print(f"프로필 디렉토리: {profile_dir}")
             
-            # 프로필 디렉토리 생성 및 압축 해제
-            if not os.path.exists(profile_dir):
-                os.makedirs(f"{profile_dir}/Default", exist_ok=True)
+            # 프로필 디렉토리와 필수 하위 디렉토리 생성
+            default_dir = os.path.join(profile_dir, 'Default')
+            for path in [profile_dir, default_dir]:
+                os.makedirs(path, exist_ok=True)
             
+            # 프로필 압축 해제
             if os.path.exists("chrome_profile.zip"):
                 print("프로필 압축 해제 시작...")
                 subprocess.run(['unzip', '-o', 'chrome_profile.zip', '-d', profile_dir], check=True)
                 subprocess.run(['chmod', '-R', '777', profile_dir], check=True)
                 
-                # Default 폴더 확인 및 생성
-                default_dir = os.path.join(profile_dir, 'Default')
-                if not os.path.exists(default_dir):
-                    os.makedirs(default_dir, exist_ok=True)
-                
-                # 필수 파일 확인
-                required_files = ['Preferences', 'Cookies', 'Login Data', 'Web Data']
+                # 필수 파일 체크
+                required_files = ['Cookies', 'Login Data', 'Web Data', 'Preferences']
                 for file in required_files:
                     file_path = os.path.join(default_dir, file)
-                    if not os.path.exists(file_path):
-                        print(f"Warning: {file} not found")
+                    if os.path.exists(file_path):
+                        print(f"Found {file}: {os.path.getsize(file_path)} bytes")
                     else:
-                        print(f"Found: {file}")
+                        print(f"Warning: {file} not found")
                 
-                print("\n압축 해제된 파일 목록:")
-                subprocess.run(['ls', '-la', default_dir])
-            
             # Chrome 옵션 설정
             options.add_argument(f'--user-data-dir={profile_dir}')
             options.add_argument('--profile-directory=Default')
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--disable-software-rasterizer')
-            options.add_argument('--disable-extensions')
-            options.add_argument('--no-first-run')
+            options.add_argument('--disable-blink-features=AutomationControlled')
             options.add_argument('--password-store=basic')
             
             # 자동화 감지 방지
             options.add_experimental_option('excludeSwitches', ['enable-automation'])
             options.add_experimental_option('useAutomationExtension', False)
             
-            # 추가 preferences 설정
+            # 추가 프리퍼런스 설정
             prefs = {
-                'profile.default_content_settings.popups': 0,
-                'profile.password_manager_enabled': True,
                 'credentials_enable_service': True,
+                'profile.password_manager_enabled': True,
                 'profile.cookie_controls_mode': 0,
+                'profile.default_content_setting_values.cookies': 1
             }
             options.add_experimental_option('prefs', prefs)
             
@@ -85,14 +76,22 @@ class BandAutoAction:
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
-            # 쿠키 상태 확인
-            print("\n초기 쿠키 확인:")
+            # 쿠키 유효성 테스트
             self.driver.get('https://band.us')
             time.sleep(3)
+            
             cookies = self.driver.get_cookies()
+            print("\n현재 쿠키 상태:")
             print(f"쿠키 수: {len(cookies)}")
             for cookie in cookies:
                 print(f"Cookie: {cookie.get('name')} = {cookie.get('domain')}")
+                
+            required_cookies = ['JSESSIONID', 'BBC', 'di', 'SESSION']
+            missing_cookies = [c for c in required_cookies if not any(cookie['name'] == c for cookie in cookies)]
+            
+            if missing_cookies:
+                print(f"\n⚠️ 누락된 필수 쿠키: {', '.join(missing_cookies)}")
+                raise Exception("필수 쿠키가 누락되었습니다")
                 
             return True
             
@@ -506,13 +505,19 @@ def main():
         bot = BandAutoAction()
         print("\n============== 작업 시작 ==============")
         
-        # band.us로 먼저 이동해서 쿠키 초기화
-        print("초기 페이지 로딩 중...")
-        bot.driver.get('https://band.us')
-        time.sleep(5)
+        # 초기 URL로 이동하여 쿠키 활성화
+        print("쿠키 초기화 중...")
+        for url in ['https://band.us/', 'https://auth.band.us/']:
+            bot.driver.get(url)
+            time.sleep(3)
+            print(f"URL 방문: {url}")
+            cookies = bot.driver.get_cookies()
+            print(f"쿠키 수: {len(cookies)}")
+            for cookie in cookies:
+                print(f"Cookie: {cookie.get('name')} = {cookie.get('domain')}")
         
         # 피드 페이지로 이동
-        print("피드 페이지로 이동 중...")
+        print("\n피드 페이지로 이동 중...")
         bot.driver.get('https://band.us/feed')
         time.sleep(5)
         
@@ -624,6 +629,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
