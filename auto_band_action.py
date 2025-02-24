@@ -505,52 +505,63 @@ class BandAutoAction:
             print("10초 대기 시작...")
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
-            
-            # URL 텍스트 삭제
-            print("URL 텍스트 삭제 중...")
-            editor.clear()
-            print("URL 텍스트 삭제 완료")
+
+            # URL 텍스트만 선택해서 삭제 (프리뷰는 유지)
+            print("URL 텍스트만 선택 삭제...")
+            editor.send_keys(Keys.CONTROL + 'a')  # 전체 선택
             time.sleep(1)
+            editor.send_keys(Keys.DELETE)  # 선택된 텍스트 삭제
+            time.sleep(1)
+            print("URL 텍스트 삭제 완료 (프리뷰 유지)")
 
-            # 바로 게시 버튼 클릭
-            submit_btn = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-            )
-            print("✅ 게시 버튼 찾음")
-            submit_btn.click()
-            print("✅ 게시 버튼 클릭")
-            time.sleep(3)
-
-            # 게시판 선택 팝업 처리
             try:
-                boardlist = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'boardList'))
+                # 프리뷰 요소 확인
+                preview = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
                 )
-                print("✅ 게시판 선택 팝업 발견")
+                if not preview.is_displayed():
+                    raise Exception("프리뷰가 사라졌습니다")
+                print("✅ 프리뷰 확인됨")
                 
-                # 첫 번째 게시판 클릭
-                first_board = boardlist.find_element(By.CSS_SELECTOR, 'li:first-child button')
-                first_board.click()
-                print("✅ 첫 번째 게시판 선택됨")
-                time.sleep(2)
-                
-                # 최종 게시 버튼 클릭
-                final_submit = WebDriverWait(self.driver, 5).until(
+                # 게시 버튼 클릭
+                submit_btn = WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
                 )
-                final_submit.click()
-                print("✅ 게시 완료")
+                print("✅ 게시 버튼 찾음")
+                submit_btn.click()
+                print("✅ 게시 버튼 클릭")
                 time.sleep(3)
+
+                # 게시판 선택 팝업 처리
+                try:
+                    boardlist = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, 'boardList'))
+                    )
+                    print("✅ 게시판 선택 팝업 발견")
+                    
+                    # 첫 번째 게시판 클릭
+                    first_board = boardlist.find_element(By.CSS_SELECTOR, 'li:first-child button')
+                    first_board.click()
+                    print("✅ 첫 번째 게시판 선택됨")
+                    time.sleep(2)
+                    
+                    # 최종 게시 버튼 클릭
+                    final_submit = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                    )
+                    final_submit.click()
+                    print("✅ 게시 완료")
+                    time.sleep(3)
+                    
+                except Exception as e:
+                    print("게시판 선택 팝업 없음 (기본 게시판으로 게시됨)")
+                    time.sleep(3)
+                
+                return True
                 
             except Exception as e:
-                print("게시판 선택 팝업 없음 (기본 게시판으로 게시됨)")
-                time.sleep(3)
-            
-            return True
-            
-        except Exception as e:
-            print(f"❌ 게시 버튼 클릭 실패: {str(e)}")
-            return False
+                print(f"❌ 게시 버튼 클릭 실패: {str(e)}")
+                return False
                 
         except Exception as e:
             print(f"❌ ======= 오류 발생 ========")
