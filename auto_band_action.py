@@ -453,24 +453,7 @@ class BandAutoAction:
             write_btn.click()
             time.sleep(3)
             
-            try:
-                board_btn = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button._btnSelectBoard'))
-                )
-                board_btn.click()
-                print("✅ 게시판 선택 버튼 클릭")
-                time.sleep(2)
-
-                first_board = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'ul.boardList li:first-child button'))
-                )
-                first_board.click()
-                print("✅ 첫 번째 게시판 선택")
-                time.sleep(2)
-            except Exception as e:
-                print(f"❌ 게시판 선택 실패: {str(e)}")
-            
-            # 에디터 찾기
+            # 에디터 찾기 (게시판 선택 전에 에디터부터 찾음)
             editor = None
             editor_selectors = [
                 'div.contentEditor._richEditor.skin3',
@@ -507,26 +490,30 @@ class BandAutoAction:
             if preview and preview.is_displayed():
                 print("✅ 프리뷰 로드 완료")
                 
-                # 텍스트 삭제
+                # 텍스트만 삭제
                 editor.clear()
                 time.sleep(2)
+                print("✅ URL 텍스트 삭제됨")
                 
-                # 첫 번째 게시 버튼 클릭
+                # 첫 번째 게시 클릭
                 submit_btn = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
                 )
                 submit_btn.click()
-                print("✅ 첫 번째 게시 버튼 클릭")
+                print("✅ 게시 버튼 클릭")
                 time.sleep(3)
                 
                 # 게시판 선택 팝업 처리
                 try:
-                    # 게시판 선택 팝업의 첫 번째 게시판 선택
-                    first_board = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'ul.boardList li:first-child button'))
+                    boardlist = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, 'boardList'))
                     )
+                    print("✅ 게시판 선택 팝업 발견")
+                    
+                    # 첫 번째 게시판 클릭
+                    first_board = boardlist.find_element(By.CSS_SELECTOR, 'li:first-child button')
                     first_board.click()
-                    print("✅ 첫 번째 게시판 선택")
+                    print("✅ 첫 번째 게시판 선택됨")
                     time.sleep(2)
                     
                     # 최종 게시 버튼 클릭
@@ -534,11 +521,12 @@ class BandAutoAction:
                         EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
                     )
                     final_submit.click()
-                    print("✅ 최종 게시 완료")
+                    print("✅ 게시 완료")
                     time.sleep(3)
                     
                 except Exception as e:
-                    print(f"게시판 선택 팝업 없음 (기본 게시판에 게시 완료)")
+                    print("게시판 선택 팝업 없음 (기본 게시판으로 게시됨)")
+                    time.sleep(3)
                 
                 return True
                 
