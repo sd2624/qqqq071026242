@@ -420,8 +420,6 @@ class BandAutoAction:
         """밴드에 포스팅"""
         try:
             print("\n" + "="*50)
-            print(f"현재 작업 중인 URL #{url_number}")
-            print(f"URL 주소: {post_url}")
             print(f"포스팅 밴드: {band_info['name']}")
             print(f"밴드 주소: {band_info['url']}")
             print("="*50 + "\n")
@@ -443,6 +441,7 @@ class BandAutoAction:
                     write_btn = WebDriverWait(self.driver, 5).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                     )
+                    print(f"✅ 글쓰기 버튼 발견: {selector}")
                     break
                 except:
                     continue
@@ -450,38 +449,35 @@ class BandAutoAction:
             if not write_btn:
                 raise Exception("글쓰기 버튼을 찾을 수 없습니다")
                 
-            print("글쓰기 버튼 클릭...")
+            print("📝 포스팅 작성 시작")
             write_btn.click()
             time.sleep(3)
             
-            # 게시판 선택 버튼 찾기 및 클릭
             try:
-                board_select_btn = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton._btnSelectBoard'))
+                board_btn = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button._btnSelectBoard'))
                 )
-                board_select_btn.click()
-                print("게시판 선택 버튼 클릭")
+                board_btn.click()
+                print("✅ 게시판 선택 버튼 클릭")
                 time.sleep(2)
-                
-                # 첫 번째 게시판 선택
+
                 first_board = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'ul.boardList li:first-child button'))
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'ul.boardList li:first-child button'))
                 )
                 first_board.click()
-                print("첫 번째 게시판 선택됨")
+                print("✅ 첫 번째 게시판 선택")
                 time.sleep(2)
             except Exception as e:
-                print(f"게시판 선택 실패 (기본 게시판 사용): {str(e)}")
+                print(f"❌ 게시판 선택 실패: {str(e)}")
             
             # 에디터 찾기
-            print("에디터 찾는 중...")
+            editor = None
             editor_selectors = [
                 'div.contentEditor._richEditor.skin3',
                 'div[contenteditable="true"][aria-labelledby="postWriteFormPlaceholderText"]',
                 'div.contentEditor[contenteditable="true"]'
             ]
             
-            editor = None
             for selector in editor_selectors:
                 try:
                     editor = WebDriverWait(self.driver, 10).until(
@@ -492,59 +488,43 @@ class BandAutoAction:
                         break
                 except:
                     continue
-                    
+            
             if not editor:
                 raise Exception("에디터를 찾을 수 없습니다")
             
-            # 기존 텍스트 클리어
-            editor.clear()
-            time.sleep(1)
-            
-            # URL 입력 전 에디터 클릭
-            self.driver.execute_script("arguments[0].click();", editor)
-            time.sleep(1)
-            
-            # 고정 URL 입력
+            # URL 입력
             fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
-            print(f"고정 URL 입력: {fixed_url}")
+            print(f"🔗 URL 입력: {fixed_url}")
             editor.send_keys(fixed_url)
-            print("URL 입력 완료")
-            
-            # 엔터키 입력 및 대기
             editor.send_keys(Keys.ENTER)
-            print("엔터키 입력")
-            time.sleep(10)  # 10초 대기
+            time.sleep(10)
             
             # 프리뷰 확인
-            try:
-                preview = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-                )
-                if preview.is_displayed():
-                    print("✅ 프리뷰 확인됨")
-                    
-                    # 텍스트만 삭제
-                    editor.clear()
-                    time.sleep(1)
-                    print("✅ 텍스트 삭제됨")
-                    
-                    # 게시 버튼 클릭
-                    submit_btn = WebDriverWait(self.driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-                    )
-                    submit_btn.click()
-                    print("✅ 게시 완료")
-                    time.sleep(3)
-                    return True
-                    
-            except Exception as e:
-                print(f"❌ 프리뷰 확인 실패: {str(e)}")
-                return False
+            preview = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
+            )
             
+            if preview and preview.is_displayed():
+                print("✅ 프리뷰 로드 완료")
+                
+                # 텍스트 삭제
+                editor.clear()
+                time.sleep(2)
+                
+                # 게시 버튼 클릭
+                submit_btn = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
+                )
+                submit_btn.click()
+                print("✅ 게시 완료")
+                time.sleep(3)
+                return True
+                
             return False
             
         except Exception as e:
-            print(f"포스팅 실패: {str(e)}")
+            print(f"❌ ======= 오류 발생 ========")
+            print(f"{str(e)}")
             return False
 
     def cleanup(self):
