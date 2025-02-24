@@ -68,8 +68,8 @@ jobs:
     - name: Download Chrome Profile Parts
       run: |
         echo "Chrome 프로필 다운로드 중..."
-        for i in {1..8}; do  # 1부터 8까지로 수정
-          wget "https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile_qqqq071026242.vol${i}" -O "chrome_profile_qqqq071026242.vol${i}"
+        for i in {1..8}; do
+          wget "https://raw.githubusercontent.com/sd2624/qqqq071026242/main/chrome_profile_qqqq071026242.vol${i}" -O "chrome_profile_qqqq071026242.vol${i}"
           if [ ! -f "chrome_profile_qqqq071026242.vol${i}" ]; then
             echo "프로필 파트 ${i} 다운로드 실패"
             exit 1
