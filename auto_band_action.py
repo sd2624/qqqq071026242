@@ -43,12 +43,10 @@ class BandAutoAction:
 
             else:
                 # 로컬 환경 설정
-                timestamp = int(time.time() * 1000)
-                profile_dir = f"chrome_profile_{timestamp}"
+                profile_dir = "chrome-profile"  # 로컬에서도 동일한 프로필 디렉토리 사용
                 
-                if os.path.exists(profile_dir):
-                    shutil.rmtree(profile_dir)
-                os.makedirs(profile_dir, exist_ok=True)
+                if not os.path.exists(profile_dir):
+                    os.makedirs(profile_dir, exist_ok=True)
                 
                 options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
                 options.add_argument('--profile-directory=Default')
@@ -582,13 +580,18 @@ def main():
         
         print("\n============== 작업 시작 ==============")
         
-        # 바로 피드 페이지로 이동 (로그인 단계 생략)
+        # 저장된 프로필로 band.us/feed 페이지 직접 접속
         print("1. 피드 페이지로 직접 이동...")
         bot.driver.get('https://band.us/feed')
-        time.sleep(5)  # 피드 로딩 대기
+        time.sleep(5)  # 페이지 로딩 대기
         
-        print(f"현재 URL: {bot.driver.current_url}")
+        # URL 체크로 로그인 상태 확인
+        current_url = bot.driver.current_url
+        print(f"현재 URL: {current_url}")
         
+        if 'band.us/feed' not in current_url:
+            raise Exception("저장된 프로필로 로그인 실패. 프로필을 확인해주세요.")
+            
         # 더보기 버튼 찾고 클릭
         try:
             more_btn = WebDriverWait(bot.driver, 10).until(
@@ -599,9 +602,9 @@ def main():
             time.sleep(2)
             more_btn.click()
             print("더보기 버튼 클릭 완료")
-            time.sleep(3)
         except Exception as e:
             print(f"더보기 버튼 처리 실패: {str(e)}")
+            raise Exception("로그인 상태를 확인할 수 없습니다. 프로필을 다시 저장해주세요.")
             
         print("\n2. 밴드 목록 수집 중...")
         bands = bot.get_band_list()
