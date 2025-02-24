@@ -1,9 +1,9 @@
 name: Band Auto Posting
 
 on:
-  workflow_dispatch:  # 수동 실행 가능
+  workflow_dispatch:
   schedule:
-    - cron: '0 */1 * * *'  # 매 시간마다 실행
+    - cron: '0 */1 * * *'
 
 jobs:
   post:
@@ -27,13 +27,11 @@ jobs:
 
     - name: Install Chrome and ChromeDriver
       run: |
-        # Chrome 설치
         wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
         sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
         sudo apt-get update
         sudo apt-get install -y google-chrome-stable
         
-        # ChromeDriver 설치
         CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
         CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION" | cut -d. -f1)
         
@@ -51,28 +49,10 @@ jobs:
 
     - name: Extract Chrome Profile
       run: |
-        # 프로필 디렉토리 설정
-        echo "Chrome 프로필 설정..."
-        mkdir -p chrome-profile/Default
+        unzip chrome_profile.zip -d chrome-profile
         chmod -R 777 chrome-profile
-        
-        # 압축 해제 및 권한 설정
-        unzip -o chrome_profile.zip -d chrome-profile
-        chmod -R 777 chrome-profile
-        
-        # 쿠키 파일 확인
-        cd chrome-profile/Default
-        
-        for file in Cookies "Login Data" "Web Data" Preferences; do
-          if [ -f "$file" ]; then
-            size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file")
-            echo "✓ $file exists: $size bytes"
-          else
-            echo "✗ $file missing"
-          fi
-        done
-        
-        echo "CHROME_PROFILE_DIR=$(pwd)" >> $GITHUB_ENV
+        echo "CHROME_PROFILE_DIR=$(pwd)/chrome-profile" >> $GITHUB_ENV
+        ls -la chrome-profile/Default/
 
     - name: Start Xvfb
       run: Xvfb :99 -screen 0 1920x1080x24 &
