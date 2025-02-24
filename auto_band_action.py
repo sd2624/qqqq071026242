@@ -537,21 +537,43 @@ def main():
         # 피드 페이지로 이동
         print("\n피드 페이지로 이동 중...")
         bot.driver.get('https://band.us/feed')
+        time.sleep(5)  # 초기 로딩 대기
         
         # 피드 페이지 완전 로딩 대기
         wait_time = 0
-        while wait_time < 30:  # 최대 30초 대기
+        found_elements = False
+        while wait_time < 60:  # 최대 1분 대기
             try:
-                band_area = WebDriverWait(bot.driver, 1).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
-                )
-                print("피드 페이지 로딩 완료")
-                break
-            except:
                 print(f"피드 페이지 로딩 대기 중... ({wait_time}초)")
+                
+                # 여러 요소 확인
+                band_area = bot.driver.find_elements(By.CSS_SELECTOR, 'div.myBandArea')
+                band_list = bot.driver.find_elements(By.CSS_SELECTOR, 'div.myBandList')
+                
+                if band_area or band_list:
+                    print("피드 페이지 필수 요소 발견")
+                    found_elements = True
+                    # 추가 로딩을 위해 3초 더 대기
+                    time.sleep(3)
+                    break
+                    
                 time.sleep(1)
                 wait_time += 1
-        
+                
+                # 30초 후에는 페이지 새로고침
+                if wait_time == 30:
+                    print("30초 경과, 페이지 새로고침...")
+                    bot.driver.refresh()
+                    time.sleep(5)
+                    
+            except Exception as e:
+                print(f"로딩 확인 중 오류 (무시됨): {str(e)}")
+                time.sleep(1)
+                wait_time += 1
+                
+        if not found_elements:
+            raise Exception("피드 페이지 필수 요소를 찾을 수 없습니다")
+            
         current_url = bot.driver.current_url
         print(f"현재 URL: {current_url}")
         
@@ -562,24 +584,19 @@ def main():
                 try:
                     print(f"\n더보기 버튼 찾기 시도 {attempt + 1}/5...")
                     
-                    # 밴드 영역 재확인
-                    band_area = WebDriverWait(bot.driver, 5).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, 'div.myBandArea'))
-                    )
-                    
-                    # 스크롤 다운
-                    bot.driver.execute_script("window.scrollBy(0, 300);")
-                    time.sleep(2)
+                    # 밴드 영역 스크롤
+                    bot.driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
+                    time.sleep(3)
                     
                     # 더보기 버튼 찾기
-                    more_btn = WebDriverWait(bot.driver, 5).until(
+                    more_btn = WebDriverWait(bot.driver, 10).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
                     )
                     print("더보기 버튼 발견")
                     
                     # 버튼이 보이는 위치로 스크롤
-                    bot.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", more_btn)
-                    time.sleep(2)
+                    bot.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", more_btn)
+                    time.sleep(3)
                     
                     # 클릭 시도
                     more_btn.click()
