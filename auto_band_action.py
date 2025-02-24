@@ -27,22 +27,35 @@ class BandAutoAction:
             options = Options()
             
             # Chrome 프로필 디렉토리 설정
-            profile_dir = os.path.abspath("chrome-profile")  # 절대 경로 사용
+            profile_dir = os.path.abspath("chrome-profile")
             print(f"프로필 디렉토리: {profile_dir}")
             
+            # 프로필 디렉토리 생성 및 압축 해제
             if not os.path.exists(profile_dir):
                 os.makedirs(f"{profile_dir}/Default", exist_ok=True)
+            
+            if os.path.exists("chrome_profile.zip"):
+                print("프로필 압축 해제 시작...")
+                subprocess.run(['unzip', '-o', 'chrome_profile.zip', '-d', profile_dir], check=True)
+                subprocess.run(['chmod', '-R', '777', profile_dir], check=True)
                 
-                if os.path.exists("chrome_profile.zip"):
-                    print("프로필 압축 해제 시작...")
-                    subprocess.run(['unzip', '-o', 'chrome_profile.zip', '-d', profile_dir], check=True)
-                    subprocess.run(['chmod', '-R', '777', profile_dir], check=True)
-                    print("프로필 압축 해제 완료")
-                    
-                    # 압축 해제된 파일 확인
-                    print("\n압축 해제된 파일 목록:")
-                    subprocess.run(['ls', '-la', f"{profile_dir}/Default/"])
-
+                # Default 폴더 확인 및 생성
+                default_dir = os.path.join(profile_dir, 'Default')
+                if not os.path.exists(default_dir):
+                    os.makedirs(default_dir, exist_ok=True)
+                
+                # 필수 파일 확인
+                required_files = ['Preferences', 'Cookies', 'Login Data', 'Web Data']
+                for file in required_files:
+                    file_path = os.path.join(default_dir, file)
+                    if not os.path.exists(file_path):
+                        print(f"Warning: {file} not found")
+                    else:
+                        print(f"Found: {file}")
+                
+                print("\n압축 해제된 파일 목록:")
+                subprocess.run(['ls', '-la', default_dir])
+            
             # Chrome 옵션 설정
             options.add_argument(f'--user-data-dir={profile_dir}')
             options.add_argument('--profile-directory=Default')
@@ -50,30 +63,37 @@ class BandAutoAction:
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-gpu')
             options.add_argument('--disable-software-rasterizer')
-            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-extensions')
             options.add_argument('--no-first-run')
             options.add_argument('--password-store=basic')
             
-            if os.getenv('GITHUB_ACTIONS'):
-                options.add_argument('--headless=new')
-                
             # 자동화 감지 방지
             options.add_experimental_option('excludeSwitches', ['enable-automation'])
             options.add_experimental_option('useAutomationExtension', False)
             
+            # 추가 preferences 설정
+            prefs = {
+                'profile.default_content_settings.popups': 0,
+                'profile.password_manager_enabled': True,
+                'credentials_enable_service': True,
+                'profile.cookie_controls_mode': 0,
+            }
+            options.add_experimental_option('prefs', prefs)
+            
             print("\nChrome 옵션 설정 완료")
             
-            # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
-            # 초기 상태 확인
-            print("\n초기 쿠키 상태 확인:")
+            # 쿠키 상태 확인
+            print("\n초기 쿠키 확인:")
             self.driver.get('https://band.us')
             time.sleep(3)
             cookies = self.driver.get_cookies()
             print(f"쿠키 수: {len(cookies)}")
-            
+            for cookie in cookies:
+                print(f"Cookie: {cookie.get('name')} = {cookie.get('domain')}")
+                
             return True
             
         except Exception as e:
@@ -486,17 +506,28 @@ def main():
         bot = BandAutoAction()
         print("\n============== 작업 시작 ==============")
         
-        # 저장된 프로필로 피드 페이지 직접 접속
+        # band.us로 먼저 이동해서 쿠키 초기화
+        print("초기 페이지 로딩 중...")
+        bot.driver.get('https://band.us')
+        time.sleep(5)
+        
+        # 피드 페이지로 이동
         print("피드 페이지로 이동 중...")
         bot.driver.get('https://band.us/feed')
         time.sleep(5)
         
-        # URL 체크로 로그인 상태 확인
         current_url = bot.driver.current_url
         print(f"현재 URL: {current_url}")
         
-        if 'band.us/feed' not in current_url:
-            raise Exception("프로필 로그인 실패")
+        # 현재 쿠키 상태 출력
+        cookies = bot.driver.get_cookies()
+        print("\n현재 쿠키 상태:")
+        print(f"쿠키 수: {len(cookies)}")
+        for cookie in cookies:
+            print(f"Cookie: {cookie.get('name')} = {cookie.get('domain')}")
+            
+        if 'auth.band.us' in current_url or 'login' in current_url:
+            raise Exception("프로필 로드 실패: 쿠키 확인 필요")
             
         # 더보기 버튼 찾고 클릭
         try:
