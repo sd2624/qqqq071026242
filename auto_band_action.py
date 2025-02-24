@@ -534,100 +534,42 @@ def main():
         bot = BandAutoAction()
         print("\n============== 작업 시작 ==============")
         
-        # 피드 페이지로 이동
-        print("\n피드 페이지로 이동 중...")
-        bot.driver.get('https://band.us/feed')
-        time.sleep(5)  # 초기 로딩 대기
+        # 특정 밴드로 직접 이동
+        target_band_url = 'https://band.us/band/96689964'
+        print(f"\n타겟 밴드로 이동 중... {target_band_url}")
+        bot.driver.get(target_band_url)
+        time.sleep(5)
         
-        # 피드 페이지 완전 로딩 대기
-        wait_time = 0
-        found_elements = False
-        while wait_time < 60:  # 최대 1분 대기
-            try:
-                print(f"피드 페이지 로딩 대기 중... ({wait_time}초)")
-                
-                # 여러 요소 확인
-                band_area = bot.driver.find_elements(By.CSS_SELECTOR, 'div.myBandArea')
-                band_list = bot.driver.find_elements(By.CSS_SELECTOR, 'div.myBandList')
-                
-                if band_area or band_list:
-                    print("피드 페이지 필수 요소 발견")
-                    found_elements = True
-                    # 추가 로딩을 위해 3초 더 대기
-                    time.sleep(3)
-                    break
-                    
-                time.sleep(1)
-                wait_time += 1
-                
-                # 30초 후에는 페이지 새로고침
-                if wait_time == 30:
-                    print("30초 경과, 페이지 새로고침...")
-                    bot.driver.refresh()
-                    time.sleep(5)
-                    
-            except Exception as e:
-                print(f"로딩 확인 중 오류 (무시됨): {str(e)}")
-                time.sleep(1)
-                wait_time += 1
-                
-        if not found_elements:
-            raise Exception("피드 페이지 필수 요소를 찾을 수 없습니다")
-            
+        # 현재 URL 확인
         current_url = bot.driver.current_url
+        if 'auth.band.us/login' in current_url:
+            raise Exception("로그인이 필요합니다")
+            
         print(f"현재 URL: {current_url}")
         
-        # 피드 페이지 로딩 성공 시 더보기 버튼 찾기
-        if 'band.us/feed' in current_url:
-            # 더보기 버튼 찾기 최대 5번 시도
-            for attempt in range(5):
-                try:
-                    print(f"\n더보기 버튼 찾기 시도 {attempt + 1}/5...")
-                    
-                    # 밴드 영역 스크롤
-                    bot.driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
-                    time.sleep(3)
-                    
-                    # 더보기 버튼 찾기
-                    more_btn = WebDriverWait(bot.driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                    )
-                    print("더보기 버튼 발견")
-                    
-                    # 버튼이 보이는 위치로 스크롤
-                    bot.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", more_btn)
-                    time.sleep(3)
-                    
-                    # 클릭 시도
-                    more_btn.click()
-                    print("더보기 버튼 클릭 완료")
-                    time.sleep(5)  # 목록 로딩 대기
-                    
-                    # 밴드 목록 로딩 확인
-                    band_list = WebDriverWait(bot.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[data-viewname="DMyGroupBandBannerView.MyGroupBandListView"]'))
-                    )
-                    print("밴드 목록 로딩 확인됨")
-                    break
-                    
-                except Exception as e:
-                    print(f"시도 {attempt + 1} 실패: {str(e)}")
-                    if attempt == 4:  # 마지막 시도 실패
-                        raise Exception("더보기 버튼 처리 실패")
-                    time.sleep(3)  # 다음 시도 전 대기
-                    continue
+        # 글쓰기 버튼 클릭
+        try:
+            write_btn = WebDriverWait(bot.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button._btnPostWrite'))
+            )
+            print("글쓰기 버튼 발견")
+            write_btn.click()
+            time.sleep(3)
             
-            print("\n2. 밴드 목록 수집 중...")
-            bands = bot.get_band_list()
+            # 글쓰기 에디터 확인
+            editor = WebDriverWait(bot.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
+            )
+            print("에디터 발견")
             
-            print("\n3. 설정 파일 읽기...")
-            with open(bot.config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                
-            # ...나머지 포스팅 코드는 그대로 유지...
+            # URL 입력 테스트
+            test_url = "https://example.com"  # 실제 URL로 교체 필요
+            editor.send_keys(test_url)
+            print(f"URL 입력 완료: {test_url}")
+            time.sleep(5)
             
-        else:
-            raise Exception("피드 페이지 로딩 실패")
+        except Exception as e:
+            raise Exception(f"글쓰기 버튼 처리 실패: {str(e)}")
             
     except Exception as e:
         print(f"\n============== 오류 발생 ==============")
