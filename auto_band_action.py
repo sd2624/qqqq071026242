@@ -27,24 +27,53 @@ class BandAutoAction:
             options = Options()
             
             # Chrome 프로필 디렉토리 설정
-            profile_dir = "chrome-profile"
+            profile_dir = os.path.abspath("chrome-profile")  # 절대 경로 사용
+            print(f"프로필 디렉토리: {profile_dir}")
+            
             if not os.path.exists(profile_dir):
-                os.makedirs(profile_dir, exist_ok=True)
+                os.makedirs(f"{profile_dir}/Default", exist_ok=True)
                 
                 if os.path.exists("chrome_profile.zip"):
+                    print("프로필 압축 해제 시작...")
                     subprocess.run(['unzip', '-o', 'chrome_profile.zip', '-d', profile_dir], check=True)
-                    os.system(f"chmod -R 777 {profile_dir}")
-            
+                    subprocess.run(['chmod', '-R', '777', profile_dir], check=True)
+                    print("프로필 압축 해제 완료")
+                    
+                    # 압축 해제된 파일 확인
+                    print("\n압축 해제된 파일 목록:")
+                    subprocess.run(['ls', '-la', f"{profile_dir}/Default/"])
+
             # Chrome 옵션 설정
-            options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
+            options.add_argument(f'--user-data-dir={profile_dir}')
             options.add_argument('--profile-directory=Default')
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--disable-software-rasterizer')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--no-first-run')
+            options.add_argument('--password-store=basic')
+            
+            if os.getenv('GITHUB_ACTIONS'):
+                options.add_argument('--headless=new')
+                
+            # 자동화 감지 방지
             options.add_experimental_option('excludeSwitches', ['enable-automation'])
             options.add_experimental_option('useAutomationExtension', False)
             
+            print("\nChrome 옵션 설정 완료")
+            
+            # 드라이버 생성
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
+            
+            # 초기 상태 확인
+            print("\n초기 쿠키 상태 확인:")
+            self.driver.get('https://band.us')
+            time.sleep(3)
+            cookies = self.driver.get_cookies()
+            print(f"쿠키 수: {len(cookies)}")
+            
             return True
             
         except Exception as e:
