@@ -542,31 +542,55 @@ def main():
         current_url = bot.driver.current_url
         print(f"현재 URL: {current_url}")
         
-        # 피드 페이지 로딩 성공 시 바로 더보기 버튼 클릭
+        # 피드 페이지 로딩 성공 시 더보기 버튼 찾기
         if 'band.us/feed' in current_url:
-            try:
-                print("\n더보기 버튼 찾는 중...")
-                more_btn = WebDriverWait(bot.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                )
-                print("더보기 버튼 발견")
-                bot.driver.execute_script("arguments[0].scrollIntoView(true);", more_btn)
-                time.sleep(2)
-                more_btn.click()
-                print("더보기 버튼 클릭 완료")
-                time.sleep(3)
-                
-                print("\n2. 밴드 목록 수집 중...")
-                bands = bot.get_band_list()
-                
-                print("\n3. 설정 파일 읽기...")
-                with open(bot.config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                
-                # ...나머지 포스팅 코드는 그대로 유지...
-                
-            except Exception as e:
-                raise Exception(f"더보기 버튼 처리 실패: {str(e)}")
+            print("\n더보기 버튼 찾는 중...")
+            
+            # 스크롤 다운으로 더보기 버튼 찾기
+            for scroll_attempt in range(5):  # 최대 5번 시도
+                try:
+                    # 페이지 아래로 스크롤
+                    bot.driver.execute_script("window.scrollBy(0, 300);")
+                    time.sleep(2)
+                    
+                    # 더보기 버튼 찾기 시도
+                    more_btn = WebDriverWait(bot.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                    )
+                    
+                    if more_btn.is_displayed() and more_btn.is_enabled():
+                        print(f"더보기 버튼 발견 (시도 {scroll_attempt + 1})")
+                        # 버튼이 보이는 위치로 스크롤
+                        bot.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", more_btn)
+                        time.sleep(2)
+                        
+                        # 클릭 가능한지 한 번 더 확인
+                        more_btn = WebDriverWait(bot.driver, 5).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                        )
+                        more_btn.click()
+                        print("더보기 버튼 클릭 완료")
+                        time.sleep(3)
+                        break
+                    else:
+                        print(f"더보기 버튼 찾기 시도 {scroll_attempt + 1} - 버튼이 보이지 않음")
+                        continue
+                        
+                except Exception as e:
+                    print(f"더보기 버튼 찾기 시도 {scroll_attempt + 1} 실패: {str(e)}")
+                    if scroll_attempt == 4:  # 마지막 시도면 예외 발생
+                        raise Exception("더보기 버튼을 찾을 수 없습니다")
+                    continue
+            
+            print("\n2. 밴드 목록 수집 중...")
+            bands = bot.get_band_list()
+            
+            print("\n3. 설정 파일 읽기...")
+            with open(bot.config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # ...나머지 포스팅 코드는 그대로 유지...
+            
         else:
             raise Exception("피드 페이지 로딩 실패")
             
