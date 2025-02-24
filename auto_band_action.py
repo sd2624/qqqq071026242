@@ -534,18 +534,7 @@ def main():
         bot = BandAutoAction()
         print("\n============== 작업 시작 ==============")
         
-        # 초기 URL로 이동하여 쿠키 활성화
-        print("쿠키 초기화 중...")
-        for url in ['https://band.us/', 'https://auth.band.us/']:
-            bot.driver.get(url)
-            time.sleep(3)
-            print(f"URL 방문: {url}")
-            cookies = bot.driver.get_cookies()
-            print(f"쿠키 수: {len(cookies)}")
-            for cookie in cookies:
-                print(f"Cookie: {cookie.get('name')} = {cookie.get('domain')}")
-        
-        # 피드 페이지로 이동
+        # 피드 페이지로 직접 이동
         print("\n피드 페이지로 이동 중...")
         bot.driver.get('https://band.us/feed')
         time.sleep(5)
@@ -553,101 +542,34 @@ def main():
         current_url = bot.driver.current_url
         print(f"현재 URL: {current_url}")
         
-        # 현재 쿠키 상태 출력
-        cookies = bot.driver.get_cookies()
-        print("\n현재 쿠키 상태:")
-        print(f"쿠키 수: {len(cookies)}")
-        for cookie in cookies:
-            print(f"Cookie: {cookie.get('name')} = {cookie.get('domain')}")
-            
-        if 'auth.band.us' in current_url or 'login' in current_url:
-            raise Exception("프로필 로드 실패: 쿠키 확인 필요")
-            
-        # 더보기 버튼 찾고 클릭
-        try:
-            more_btn = WebDriverWait(bot.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-            )
-            print("더보기 버튼 발견")
-            bot.driver.execute_script("arguments[0].scrollIntoView(true);", more_btn)
-            time.sleep(2)
-            more_btn.click()
-            print("더보기 버튼 클릭 완료")
-            time.sleep(3)
-        except Exception as e:
-            raise Exception(f"더보기 버튼 처리 실패: {str(e)}")
-        
-        # ...나머지 코드는 그대로 유지...
-
-        print("2. 밴드 목록 수집 중...")
-        bands = bot.get_band_list()
-        
-        print("\n3. 설정 파일 읽기...")
-        with open(bot.config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        
-        # 빈 URL을 제외한 URL 목록 생성
-        urls = []
-        for i in range(1, 31):
-            url = config.get(f'post_url_{i}', '').strip()
-            if url:
-                urls.append((i, url))
+        # 피드 페이지 로딩 성공 시 바로 더보기 버튼 클릭
+        if 'band.us/feed' in current_url:
+            try:
+                print("\n더보기 버튼 찾는 중...")
+                more_btn = WebDriverWait(bot.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
+                )
+                print("더보기 버튼 발견")
+                bot.driver.execute_script("arguments[0].scrollIntoView(true);", more_btn)
+                time.sleep(2)
+                more_btn.click()
+                print("더보기 버튼 클릭 완료")
+                time.sleep(3)
                 
-        if not urls:
-            print("포스팅할 URL이 없습니다!")
-            return
-            
-        print(f"포스팅할 URL 수: {len(urls)}개")
-        
-        # 각 URL 순차적으로 처리 (1시간 간격)
-        for url_idx, (url_num, post_url) in enumerate(urls, 1):
-            print(f"\n{'='*60}")
-            print(f"URL {url_num}/{len(urls)} 포스팅 시작")
-            print(f"현재 URL: {post_url}")
-            print(f"{'='*60}\n")
-            success_count = 0
-            
-            # 해당 URL로 모든 밴드에 포스팅
-            for band_idx, band in enumerate(bands, 1):
-                if bot.post_to_band(band, post_url, url_num):
-                    success_count += 1
+                print("\n2. 밴드 목록 수집 중...")
+                bands = bot.get_band_list()
                 
-                # 다음 밴드로 이동 전 4~6분 랜덤 대기
-                if band_idx < len(bands):
-                    wait_time = random.randint(240, 360)  # 4분(240초) ~ 6분(360초)
-                    print(f"\n현재 진행 상황:")
-                    print(f"- URL {url_num}/{len(urls)}")
-                    print(f"- 현재 URL: {post_url}")
-                    print(f"- 밴드 진행: {band_idx}/{len(bands)}")
-                    print(f"- 성공: {success_count}회")
-                    print(f"다음 밴드로 이동 전 {wait_time}초({wait_time/60:.1f}분) 대기...")
-                    time.sleep(wait_time)
-            
-            print(f"\nURL {url_num} 포스팅 통계:")
-            print(f"- 작업한 URL: {post_url}")
-            print(f"- 총 시도: {len(bands)}회")
-            print(f"- 성공: {success_count}회")
-            print(f"- 실패: {len(bands) - success_count}회")
-            
-            # 다음 URL로 넘어가기 전에 1시간 대기
-            if url_idx < len(urls):
-                next_url = urls[url_idx][1]
-                wait_time = 3600  # 1시간 = 3600초
-                print(f"\n다음 URL 정보:")
-                print(f"- 다음 URL 번호: {urls[url_idx][0]}")
-                print(f"- 다음 URL 주소: {next_url}")
-                print(f"- 대기 시작: 1시간")
+                print("\n3. 설정 파일 읽기...")
+                with open(bot.config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
                 
-                # 1분 단위로 남은 시간 표시
-                while wait_time > 0:
-                    hours = wait_time // 3600
-                    minutes = (wait_time % 3600) // 60
-                    print(f"남은 시간: {hours}시간 {minutes}분 | 다음 URL: {next_url}")
-                    time.sleep(60)
-                    wait_time -= 60
-        
-        print("\n============== 모든 URL 작업 완료 ==============")
-        
+                # ...나머지 포스팅 코드는 그대로 유지...
+                
+            except Exception as e:
+                raise Exception(f"더보기 버튼 처리 실패: {str(e)}")
+        else:
+            raise Exception("피드 페이지 로딩 실패")
+            
     except Exception as e:
         print(f"\n============== 오류 발생 ==============")
         print(f"Error: {str(e)}")
