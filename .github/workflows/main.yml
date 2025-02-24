@@ -77,14 +77,6 @@ jobs:
           echo "프로필 파트 ${i} 다운로드 완료"
         done
 
-    - name: Check Profile Archive
-      run: |
-        if [ ! -f "chrome_profile.zip" ]; then
-          echo "chrome_profile.zip not found!"
-          exit 1
-        fi
-        echo "Found chrome_profile.zip"
-        
     - name: Clean Chrome Processes
       run: |
         # 기존 Chrome 프로세스 강제 종료
