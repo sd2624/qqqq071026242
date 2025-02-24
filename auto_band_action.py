@@ -480,7 +480,7 @@ class BandAutoAction:
             print(f"🔗 URL 입력: {fixed_url}")
             editor.send_keys(fixed_url)
             editor.send_keys(Keys.ENTER)
-            time.sleep(10)
+            time.sleep(10)  # URL 입력 후 10초 대기
             
             # 프리뷰 확인
             preview = WebDriverWait(self.driver, 10).until(
@@ -490,11 +490,7 @@ class BandAutoAction:
             if preview and preview.is_displayed():
                 print("✅ 프리뷰 로드 완료")
                 
-                # 텍스트만 삭제
-                editor.clear()
-                time.sleep(2)
-                print("✅ URL 텍스트 삭제됨")
-                
+       
                 # 첫 번째 게시 클릭
                 submit_btn = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
