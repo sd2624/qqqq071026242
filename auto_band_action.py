@@ -35,39 +35,26 @@ class BandAutoAction:
             for path in [profile_dir, default_dir]:
                 os.makedirs(path, exist_ok=True)
             
-            # 프로필 압축 해제
-            if os.path.exists("chrome_profile.zip"):
-                print("프로필 압축 해제 시작...")
-                subprocess.run(['unzip', '-o', 'chrome_profile.zip', '-d', profile_dir], check=True)
-                subprocess.run(['chmod', '-R', '777', profile_dir], check=True)
-                
-                # 필수 파일 체크
-                required_files = ['Cookies', 'Login Data', 'Web Data', 'Preferences']
-                for file in required_files:
-                    file_path = os.path.join(default_dir, file)
-                    if os.path.exists(file_path):
-                        print(f"Found {file}: {os.path.getsize(file_path)} bytes")
-                    else:
-                        print(f"Warning: {file} not found")
-                
             # Chrome 옵션 설정
             options.add_argument(f'--user-data-dir={profile_dir}')
             options.add_argument('--profile-directory=Default')
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_argument('--password-store=basic')
+            options.add_argument('--disable-web-security')  # 쿠키 제한 해제
+            options.add_argument('--disable-features=IsolateOrigins,site-per-process')
             
             # 자동화 감지 방지
             options.add_experimental_option('excludeSwitches', ['enable-automation'])
             options.add_experimental_option('useAutomationExtension', False)
             
-            # 추가 프리퍼런스 설정
+            # 쿠키 관련 프리퍼런스 설정
             prefs = {
-                'credentials_enable_service': True,
-                'profile.password_manager_enabled': True,
+                'profile.default_content_settings.cookies': 1,
+                'profile.block_third_party_cookies': False,
                 'profile.cookie_controls_mode': 0,
-                'profile.default_content_setting_values.cookies': 1
+                'credentials_enable_service': True,
+                'profile.password_manager_enabled': True
             }
             options.add_experimental_option('prefs', prefs)
             
@@ -76,22 +63,64 @@ class BandAutoAction:
             self.driver = webdriver.Chrome(options=options)
             self.driver.set_page_load_timeout(30)
             
-            # 쿠키 유효성 테스트
+            # band.us 도메인에 필요한 쿠키 직접 추가
+            print("\n쿠키 설정 중...")
             self.driver.get('https://band.us')
+            time.sleep(2)
+            
+            cookies_to_add = [
+                {
+                    'name': 'JSESSIONID',
+                    'value': 'your_jsessionid_value',
+                    'domain': 'band.us'
+                },
+                {
+                    'name': 'BBC',
+                    'value': 'your_bbc_value',
+                    'domain': '.band.us'
+                },
+                {
+                    'name': 'di',
+                    'value': 'your_di_value',
+                    'domain': '.band.us'
+                },
+                {
+                    'name': 'SESSION',
+                    'value': 'your_session_value',
+                    'domain': 'auth.band.us'
+                },
+                {
+                    'name': 'language',
+                    'value': 'ko_KR',
+                    'domain': '.band.us'
+                }
+            ]
+            
+            for cookie in cookies_to_add:
+                try:
+                    self.driver.add_cookie(cookie)
+                    print(f"Added cookie: {cookie['name']} for {cookie['domain']}")
+                except Exception as e:
+                    print(f"Failed to add cookie {cookie['name']}: {str(e)}")
+            
+            # 쿠키 설정 후 페이지 새로고침
+            self.driver.refresh()
             time.sleep(3)
             
+            # 최종 쿠키 상태 확인
             cookies = self.driver.get_cookies()
             print("\n현재 쿠키 상태:")
             print(f"쿠키 수: {len(cookies)}")
             for cookie in cookies:
                 print(f"Cookie: {cookie.get('name')} = {cookie.get('domain')}")
-                
-            required_cookies = ['JSESSIONID', 'BBC', 'di', 'SESSION']
-            missing_cookies = [c for c in required_cookies if not any(cookie['name'] == c for cookie in cookies)]
             
-            if missing_cookies:
-                print(f"\n⚠️ 누락된 필수 쿠키: {', '.join(missing_cookies)}")
-                raise Exception("필수 쿠키가 누락되었습니다")
+            # band.us 메인 페이지 접속 테스트
+            print("\n로그인 상태 확인 중...")
+            self.driver.get('https://band.us/feed')
+            time.sleep(5)
+            
+            if 'auth.band.us/login' in self.driver.current_url:
+                raise Exception("쿠키 인증 실패")
                 
             return True
             
