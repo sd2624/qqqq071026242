@@ -479,8 +479,14 @@ class BandAutoAction:
             fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
             print(f"🔗 URL 입력: {fixed_url}")
             editor.send_keys(fixed_url)
+            print("URL 입력 완료")
+            time.sleep(1)
+            
+            print("엔터키 입력")
             editor.send_keys(Keys.ENTER)
+            print("10초 대기 시작...")
             time.sleep(10)  # URL 입력 후 10초 대기
+            print("10초 대기 완료")
             
             # 프리뷰 확인
             preview = WebDriverWait(self.driver, 10).until(
