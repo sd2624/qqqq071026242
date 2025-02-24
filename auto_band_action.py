@@ -419,46 +419,69 @@ class BandAutoAction:
 
     def post_to_band(self, band_info):
         try:
-            # ...existing code until finding editor...
+            # 밴드로 이동
+            if not self.navigate_to_band(band_info):
+                return False
+                
+            # 글쓰기 버튼 찾기
+            write_btn = None
+            write_btn_selectors = [
+                'button._btnPostWrite',
+                'button.uButton.-sizeL.-confirm.sf_bg',
+                'button[type="button"][class*="_btnPostWrite"]'
+            ]
+            
+            for selector in write_btn_selectors:
+                try:
+                    write_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                    )
+                    break
+                except:
+                    continue
+                    
+            if not write_btn:
+                raise Exception("글쓰기 버튼을 찾을 수 없습니다")
+                
+            write_btn.click()
+            time.sleep(3)
             
             # 에디터 찾기
             editor = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'div[contenteditable="true"]'))
             )
-            self.gui.update_status("에디터 찾는 중...")
             
-            # 고정 URL 입력
+            # URL 입력
             fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
             editor.click()
             editor.clear()
             editor.send_keys(fixed_url)
-            self.gui.update_status(f"URL 입력 완료: {fixed_url}")
             
-            # 엔터키 입력
-            ActionChains(self.driver).send_keys(Keys.ENTER).perform()
-            self.gui.update_status("엔터키 입력 완료")
+            # 엔터 입력
+            editor.send_keys(Keys.ENTER)
             
             # 10초 대기
-            self.gui.update_status("10초 대기 중...")
+            print("10초 대기 시작...")
             time.sleep(10)
+            print("대기 완료")
             
             # URL 텍스트만 삭제 (프리뷰 유지)
             editor.clear()
-            self.gui.update_status("URL 텍스트 삭제 완료")
+            print("URL 텍스트 삭제 완료")
             
-            # 게시 버튼 클릭 및 이후 처리
+            # 게시 버튼 클릭
             submit_btn = WebDriverWait(self.driver, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
             )
             time.sleep(2)
             submit_btn.click()
-            self.gui.update_status("게시 완료")
+            print("게시 완료")
             time.sleep(3)
             
-            # ...rest of the existing code...
+            return True
             
         except Exception as e:
-            self.gui.update_status(f"포스팅 실패: {str(e)}")
+            print(f"포스팅 실패: {str(e)}")
             return False
 
     def cleanup(self):
