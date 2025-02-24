@@ -506,18 +506,11 @@ class BandAutoAction:
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
 
-            # JavaScript로 텍스트 선택 후 삭제
-            print("URL 텍스트 선택 후 삭제...")
-            self.driver.execute_script("""
-                var editor = document.querySelector('div[contenteditable="true"]');
-                var range = document.createRange();
-                range.selectNodeContents(editor);
-                var sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            """)
-            time.sleep(1)
-            editor.send_keys(Keys.DELETE)
+            # URL 텍스트 백스페이스로 삭제
+            print(f"URL 텍스트 백스페이스로 삭제 중... (길이: {len(fixed_url)})")
+            for _ in range(len(fixed_url)):
+                editor.send_keys(Keys.BACKSPACE)
+                time.sleep(0.1)
             print("✅ URL 텍스트 삭제 완료")
             time.sleep(1)
 
@@ -529,13 +522,6 @@ class BandAutoAction:
             submit_btn.click()
             print("✅ 게시 버튼 클릭")
             time.sleep(3)
-
-            # 프리뷰 생성 확인
-            print("프리뷰 확인 중...")
-            preview = WebDriverWait(self.driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-            )
-            print("✅ 프리뷰 생성됨")
 
             # 게시판 선택 팝업 처리
             try:
