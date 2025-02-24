@@ -417,7 +417,6 @@ class BandAutoAction:
             raise
 
     def post_to_band(self, band_info, post_url, url_number):
-        """밴드에 포스팅"""
         try:
             print("\n" + "="*50)
             print(f"포스팅 밴드: {band_info['name']}")
@@ -426,32 +425,51 @@ class BandAutoAction:
             
             # 밴드로 이동
             self.driver.get(band_info['url'])
-            time.sleep(5)
+            print("밴드 페이지 로딩 중...")
+            time.sleep(10)  # 대기 시간 증가
             
             # 글쓰기 버튼 찾기
             write_btn = None
             write_btn_selectors = [
+                'button[class*="_btnPostWrite"]',  # 수정된 셀렉터
                 'button._btnPostWrite',
                 'button.uButton.-sizeL.-confirm.sf_bg',
-                'button[type="button"][class*="_btnPostWrite"]'
+                'button.writePost',  # 추가된 셀렉터
+                'button[data-viewname="WriteFormView"]',  # 추가된 셀렉터
+                'button.uButton._btnPostWrite'  # 추가된 셀렉터
             ]
             
+            print("글쓰기 버튼 찾는 중...")
             for selector in write_btn_selectors:
                 try:
-                    write_btn = WebDriverWait(self.driver, 5).until(
+                    print(f"셀렉터 시도: {selector}")
+                    write_btn = WebDriverWait(self.driver, 10).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                     )
-                    print(f"✅ 글쓰기 버튼 발견: {selector}")
-                    break
+                    if write_btn and write_btn.is_displayed():
+                        print(f"✅ 글쓰기 버튼 발견: {selector}")
+                        break
                 except:
                     continue
                     
             if not write_btn:
+                # 페이지 소스 출력
+                print("\n현재 페이지 버튼 elements 확인:")
+                buttons = self.driver.find_elements(By.TAG_NAME, 'button')
+                for btn in buttons:
+                    try:
+                        print(f"버튼 클래스: {btn.get_attribute('class')}")
+                    except:
+                        continue
                 raise Exception("글쓰기 버튼을 찾을 수 없습니다")
+
+            # 스크롤하여 버튼이 보이게 함
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", write_btn)
+            time.sleep(2)
                 
             print("📝 포스팅 작성 시작")
             write_btn.click()
-            time.sleep(3)
+            time.sleep(5)  # 대기 시간 증가
             
             # 에디터 찾기 (게시판 선택 전에 에디터부터 찾음)
             editor = None
