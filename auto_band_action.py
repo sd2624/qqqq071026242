@@ -40,8 +40,6 @@ class BandAutoAction:
             options.add_argument('--profile-directory=Default')
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
-            
-            # 자동화 감지 방지
             options.add_experimental_option('excludeSwitches', ['enable-automation'])
             options.add_experimental_option('useAutomationExtension', False)
             
