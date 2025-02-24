@@ -96,12 +96,26 @@ jobs:
       run: |
         # 기존 프로필 디렉토리 제거
         rm -rf chrome-profile
+        mkdir -p chrome-profile
         
-        # 새 프로필 압축 해제
-        unzip chrome_profile.zip -d chrome-profile
+        # 자동 응답 옵션으로 압축 해제 (-o: 덮어쓰기, -y: 모든 질문에 yes)
+        echo "y" | unzip -o chrome_profile.zip -d chrome-profile || {
+          echo "첫 번째 압축 해제 시도 실패, 다른 방법 시도..."
+          
+          # 두 번째 시도: 7z 사용
+          sudo apt-get install -y p7zip-full
+          7z x chrome_profile.zip -ochrome-profile -y || {
+            echo "두 번째 압축 해제 시도 실패"
+            exit 1
+          }
+        }
+        
+        # 권한 설정
         chmod -R 777 chrome-profile
         echo "CHROME_PROFILE_DIR=$(pwd)/chrome-profile" >> $GITHUB_ENV
-        ls -la chrome-profile/Default/
+        
+        # 압축 해제 결과 확인
+        ls -la chrome-profile/Default/ || echo "Default 디렉토리 없음"
 
     - name: Check Profile Archive
       run: |
