@@ -417,7 +417,7 @@ class BandAutoAction:
             print(f"\n밴드 목록 수집 실패: {str(e)}")
             raise
 
-    def post_to_band(self, band_info):
+    def post_to_band(self, band_info):  # post_url과 url_number 매개변수 제거
         try:
             # 밴드로 이동
             if not self.navigate_to_band(band_info):
@@ -543,7 +543,7 @@ def main():
             
             # 해당 URL로 모든 밴드에 포스팅
             for band_idx, band in enumerate(bands, 1):
-                if bot.post_to_band(band, post_url, url_num):
+                if bot.post_to_band(band):  # post_url과 url_number 인자 제거
                     success_count += 1
                 
                 # 다음 밴드로 이동 전 4~6분 랜덤 대기
