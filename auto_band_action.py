@@ -505,9 +505,16 @@ class BandAutoAction:
             print("10초 대기 시작...")
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
+            
+            # URL 텍스트만 선택 후 삭제
+            print("URL 텍스트 삭제 중...")
+            editor.clear()  # 텍스트 영역 클리어
+            time.sleep(1)
+            print("URL 텍스트 삭제 완료")
 
             # 바로 게시 버튼 클릭
             try:
+                print("게시 버튼 찾는 중...")
                 submit_btn = WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
                 )
