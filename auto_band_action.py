@@ -505,20 +505,13 @@ class BandAutoAction:
             print("10초 대기 시작...")
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
-            
-            # 프리뷰 확인
-            preview = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-            )
-            
-            if preview and preview.is_displayed():
-                print("✅ 프리뷰 로드 완료")
-                
-       
-                # 첫 번째 게시 클릭
-                submit_btn = WebDriverWait(self.driver, 10).until(
+
+            # 바로 게시 버튼 클릭
+            try:
+                submit_btn = WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
                 )
+                print("✅ 게시 버튼 찾음")
                 submit_btn.click()
                 print("✅ 게시 버튼 클릭")
                 time.sleep(3)
@@ -550,8 +543,10 @@ class BandAutoAction:
                 
                 return True
                 
-            return False
-            
+            except Exception as e:
+                print(f"❌ 게시 버튼 클릭 실패: {str(e)}")
+                return False
+                
         except Exception as e:
             print(f"❌ ======= 오류 발생 ========")
             print(f"{str(e)}")
