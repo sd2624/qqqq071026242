@@ -502,20 +502,21 @@ class BandAutoAction:
             
             print("엔터키 입력")
             editor.send_keys(Keys.ENTER)
-            print("프리뷰 대기 시작...")
-            
-            # 프리뷰 생성 확인
-            preview = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
-            )
-            print("✅ 프리뷰 확인됨")
-            time.sleep(2)  # 프리뷰 완전 로딩 대기
+            print("10초 대기 시작...")
+            time.sleep(10)  # URL 입력 후 10초 대기
+            print("10초 대기 완료")
 
-            # URL 텍스트 삭제
-            print("URL 텍스트 선택 및 삭제...")
-            editor.send_keys(Keys.CONTROL + 'a')  # 전체 선택
-            time.sleep(0.5)
-            editor.send_keys(Keys.DELETE)  # 삭제
+            # 커서를 맨 앞으로 이동
+            print("커서를 맨 앞으로 이동...")
+            editor.send_keys(Keys.HOME)
+            time.sleep(1)
+            print("✅ 커서 이동 완료")
+            
+            # URL 길이만큼 DELETE로 삭제
+            print(f"URL 텍스트 삭제 중... (길이: {len(fixed_url)})")
+            for _ in range(len(fixed_url)):
+                editor.send_keys(Keys.DELETE)
+                time.sleep(0.1)
             print("✅ URL 텍스트 삭제 완료")
             time.sleep(1)
 
