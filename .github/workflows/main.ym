@@ -1,646 +1,436 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import os
-import json
-import time
-import random
-import subprocess
-import shutil
-import requests
-from selenium.webdriver.common.keys import Keys  # Keys import 추가
+name: Band Auto Posting
 
-class BandAutoAction:
-    def __init__(self):
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.config_path = os.path.join(self.script_dir, 'config.json')
-        self.bands_file = os.path.join(self.script_dir, 'band_urls.json')
-        self.driver = None  # driver 초기화 추가
-        self.setup_vpn()
+on:
+  workflow_dispatch:  # 수동 실행 가능
+  schedule:
+    - cron: '0 */1 * * *'  # 매 시간마다 실행
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
         
-        # driver 설정 실패 시 예외 처리 추가
-        if not self.setup_driver():
-            raise Exception("Chrome driver 초기화 실패")
-            
-    def setup_vpn(self):
-        """한국 VPN 연결 확인"""
-        try:
-            # GitHub Actions에서 설정된 프록시 사용
-            proxies = {
-                'http': 'socks5h://127.0.0.1:1080',
-                'https': 'socks5h://127.0.0.1:1080'
-            } if os.getenv('GITHUB_ACTIONS') else None
-            
-            response = requests.get("http://ip-api.com/json", proxies=proxies)
-            ip_info = response.json()
-            
-            print("\n============== VPN 상태 ==============")
-            print(f"현재 IP: {ip_info.get('query')}")
-            print(f"국가: {ip_info.get('country')}")
-            print(f"지역: {ip_info.get('regionName')}")
-            print(f"도시: {ip_info.get('city')}")
-            print(f"ISP: {ip_info.get('isp')}")
-            print("=====================================\n")
-            
-            if ip_info.get('country') != 'South Korea':
-                raise Exception("한국 IP가 아닙니다!")
-                
-        except Exception as e:
-            print(f"VPN 설정 실패: {str(e)}")
-            raise
-
-    def setup_driver(self):
-        try:
-            options = Options()
-            
-            # GitHub Actions 환경인 경우
-            if os.getenv('GITHUB_ACTIONS'):
-                # 기존 압축된 프로필 사용
-                profile_dir = "chrome-profile"
-                
-                # 프로필 디렉토리가 없으면 생성
-                if not os.path.exists(profile_dir):
-                    os.makedirs(f"{profile_dir}/Default", exist_ok=True)
-                
-                # 압축된 프로필 해제 (기존 파일 덮어쓰기)
-                if os.path.exists("chrome_profile.zip"):
-                    os.system(f"unzip -o chrome_profile.zip -d {profile_dir}")
-                    
-                # 권한 설정
-                os.system(f"chmod -R 777 {profile_dir}")
-                
-                # Chrome 옵션 설정
-                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-                options.add_argument('--profile-directory=Default')
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--password-store=basic')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
-
-            else:
-                # 로컬 환경에서는 기존 설정 사용
-                timestamp = int(time.time() * 1000)
-                profile_dir = f"chrome_profile_{timestamp}"
-                
-                # 기존 프로필 디렉토리 제거
-                if os.path.exists(profile_dir):
-                    shutil.rmtree(profile_dir)
-                time.sleep(1)
-                
-                # 새 프로필 디렉토리 생성
-                os.makedirs(profile_dir, exist_ok=True)
-                
-                options.add_argument(f'--user-data-dir={os.path.abspath(profile_dir)}')
-                options.add_argument('--profile-directory=Default')
-                
-                # 기본 옵션
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--disable-gpu')
-                options.add_argument('--disable-software-rasterizer')
-                
-                # 프로세스 분리 비활성화
-                options.add_argument('--disable-features=IsolateOrigins,site-per-process')
-                options.add_argument('--disable-site-isolation-trials')
-                
-                # 기타 필요한 설정
-                options.add_argument('--no-first-run')
-                options.add_argument('--no-default-browser-check')
-                options.add_argument('--password-store=basic')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                
-                # 프록시 설정
-                options.add_argument('--proxy-server=socks5://127.0.0.1:1080')
-                
-                # 자동화 감지 방지
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
-
-            # 드라이버 생성
-            self.driver = webdriver.Chrome(options=options)
-            self.driver.set_page_load_timeout(30)
-            
-            # 초기 페이지 로드 테스트
-            self.driver.get('about:blank')
-            time.sleep(2)
-            
-            print(f"Chrome driver initialized with profile: {profile_dir}")
-            return True
-            
-        except Exception as e:
-            print(f"Driver setup failed: {str(e)}")
-            if self.driver:
-                try:
-                    self.driver.quit()
-                except:
-                    pass
-                self.driver = None
-            return False
-
-    def navigate_to_url(self, url):
-        """URL로 이동하고 상태를 출력"""
-        try:
-            print(f"\n{'='*50}")
-            print(f"URL 이동 시도: {url}")
-            print(f"{'='*50}\n")
-            
-            self.driver.get(url)
-            time.sleep(3)
-            
-            current_url = self.driver.current_url
-            print(f"현재 URL: {current_url}")
-            
-            return current_url == url or url in current_url
-            
-        except Exception as e:
-            print(f"URL 이동 실패: {str(e)}")
-            return False
-
-    def wait_for_main_page(self, timeout=30):
-        """메인 페이지 로딩 완료 대기"""
-        try:
-            print("\n메인 페이지 로딩 대기 중...")
-            current_url = self.driver.current_url
-            print(f"현재 URL: {current_url}")
-            
-            # validation_welcome 페이지 체크
-            if 'validation_welcome' in current_url:
-                print("인증 페이지 발견, 처리 중...")
-                try:
-                    next_btn = WebDriverWait(self.driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-confirm'))
-                    )
-                    next_btn.click()
-                    time.sleep(3)
-                except Exception as e:
-                    print(f"인증 페이지 처리 중 오류 (무시됨): {str(e)}")
-
-            # 피드 페이지로 직접 이동
-            print("\nband.us/feed 페이지로 이동 중...")
-            self.driver.get('https://band.us/feed')
-            time.sleep(3)
-            
-            # 버전0과 동일하게 처리
-            start_time = time.time()
-            while (time.time() - start_time < timeout):
-                try:
-                    # 피드 페이지의 특정 요소들 중 하나라도 발견되면 성공
-                    feed_elements = self.driver.find_elements(By.CSS_SELECTOR, 
-                        'div.myBandList, div.feed, div.myBandArea, button.myBandMoreView._btnMore')
-                    if feed_elements:
-                        print("밴드 피드 페이지 로딩 완료")
-                        return True
-                except:
-                    pass
-                time.sleep(2)
-                print(f"피드 페이지 로딩 대기 중... ({int(time.time() - start_time)}초)")
-                
-            return False
-                
-        except Exception as e:
-            print(f"\n페이지 로딩 실패:")
-            print(f"마지막 URL: {self.driver.current_url}")
-            print(f"오류 내용: {str(e)}")
-            return False
-
-    def login(self):
-        try:
-            print("\n============== 로그인 시작 ==============")
-            print(f"초기 URL: {self.driver.current_url}")
-            
-            # 로그인 페이지로 이동
-            login_url = 'https://auth.band.us/login'
-            print(f"\n1. 로그인 페이지로 이동: {login_url}")
-            self.navigate_to_url(login_url)
-            print(f"현재 URL: {self.driver.current_url}")
-            time.sleep(3)
-            
-            # 이메일 로그인 버튼 찾고 클릭
-            print("\n2. 이메일 로그인 버튼 찾는 중...")
-            email_login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uButtonRound.-h56.-icoType.-email'))
-            )
-            email_login_btn.click()
-            print(f"현재 URL: {self.driver.current_url}")
-            time.sleep(2)
-
-            # 이메일 입력
-            print("\n3. 이메일 입력 페이지...")
-            print(f"현재 URL: {self.driver.current_url}")
-            email_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'input_email'))
-            )
-            
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                email = config.get('email', '')
-            
-            print(f"이메일 입력 시작: {email}")
-            email_input.send_keys(email)
-            print("이메일 입력 완료")
-            time.sleep(1)
-            
-            # 다음 버튼 클릭
-            email_next_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))
-            )
-            email_next_btn.click()
-            print("\n4. 다음 버튼 클릭")
-            print(f"현재 URL: {self.driver.current_url}")
-            time.sleep(2)
-
-            # 비밀번호 입력
-            print("\n5. 비밀번호 입력 페이지...")
-            print(f"현재 URL: {self.driver.current_url}")
-            pw_input = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'pw'))
-            )
-            password = config.get('password', '')
-            print("비밀번호 입력 시작")
-            pw_input.send_keys(password)
-            print("비밀번호 입력 완료")
-            time.sleep(1)
-            
-            # 로그인 버튼 클릭
-            login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '.uBtn.-tcType.-confirm'))  # 이 버튼을 클릭
-            )
-            print("\n6. 로그인 버튼 클릭")
-            login_btn.click()
-            
-            # 즉시 URL 체크
-            time.sleep(2)
-            current_url = self.driver.current_url
-            print(f"\n로그인 버튼 클릭 직후 URL: {current_url}")
-            
-            # band.us/feed로 직접 이동
-            print("\nband.us/feed 페이지로 이동 중...")
-            self.driver.get('https://band.us/feed')
-            time.sleep(5)
-            print(f"현재 URL: {self.driver.current_url}")
-            
-            # 피드 페이지 로딩 확인
-            try:
-                # 더보기 버튼 바로 찾기
-                more_btn = WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                )
-                print("더보기 버튼 발견")
-                more_btn.click()
-                print("더보기 버튼 클릭 완료")
-                time.sleep(3)
-                return True
-            except Exception as e:
-                print(f"피드 페이지 로딩 실패: {str(e)}")
-                return False
-                
-            print("\n로그인 성공!")
-            print(f"최종 접속 URL: {self.driver.current_url}")
-            print("==========================================")
-            
-        except Exception as e:
-            print("\n============== 로그인 실패 ==============")
-            print(f"마지막 URL: {self.driver.current_url}")
-            print(f"오류 내용: {str(e)}")
-            print("========================================")
-            raise
-
-    def get_band_list(self):
-        """밴드 목록 가져오기"""
-        try:
-            print("\n============== 밴드 목록 수집 시작 ==============")
-            print("1. 피드 페이지 이동 시도...")
-            self.driver.get('https://band.us/feed')
-            time.sleep(5)  # 대기 시간 증가
-            print(f"현재 URL: {self.driver.current_url}")
-            
-            print("\n2. 피드 페이지 로딩 대기...")
-            # myBandArea 대신 다른 선택자들도 시도
-            selectors = [
-                'div.myBandArea',
-                'div.myBandList',
-                'div.feed',
-                'button.myBandMoreView._btnMore'
-            ]
-            
-            element_found = False
-            for selector in selectors:
-                try:
-                    WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                    )
-                    element_found = True
-                    print(f"요소 발견: {selector}")
-                    break
-                except:
-                    continue
-                    
-            if not element_found:
-                raise Exception("피드 페이지 요소를 찾을 수 없습니다")
-                
-            print("피드 페이지 로딩 완료")
-            
-            # 더보기 버튼 찾기 전에 스크롤
-            for scroll_attempt in range(1, 6):  # 최대 5번 시도
-                try:
-                    print(f"\n3. 더보기 버튼 찾기 시도 {scroll_attempt}/5...")
-                    
-                    # 스크롤 다운
-                    self.driver.execute_script("window.scrollBy(0, 300);")
-                    time.sleep(2)
-                    
-                    # 더보기 버튼 찾기
-                    more_btn = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.myBandMoreView._btnMore'))
-                    )
-                    
-                    print("더보기 버튼 발견")
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", more_btn)
-                    time.sleep(2)
-                    more_btn.click()
-                    print("더보기 버튼 클릭 완료")
-                    time.sleep(5)  # 클릭 후 대기 시간 증가
-                    break
-                except:
-                    print(f"시도 {scroll_attempt} 실패, 다시 시도...")
-                    continue
-                    
-            print("\n4. 밴드 목록 요소 찾는 중...")
-            band_list = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'ul[data-viewname="DMyGroupBandBannerView.MyGroupBandListView"]'))
-            )
-            print("밴드 목록 컨테이너 발견")
-            
-            print("\n5. 개별 밴드 정보 수집...")
-            band_items = band_list.find_elements(By.CSS_SELECTOR, 'li[data-viewname="DMyGroupBandListItemView"]')
-            total_bands = len(band_items)
-            print(f"총 {total_bands}개의 밴드 항목 발견")
-            
-            bands = []
-            for idx, item in enumerate(band_items, 1):
-                try:
-                    band_link = item.find_element(By.CSS_SELECTOR, 'a.itemMyBand')
-                    band_name = item.find_element(By.CSS_SELECTOR, 'span.body strong.ellipsis').text.strip()
-                    band_url = band_link.get_attribute('href')
-                    
-                    if band_url and band_name:
-                        bands.append({
-                            'name': band_name,
-                            'url': band_url
-                        })
-                        print(f"밴드 정보 추출 성공 [{idx}/{total_bands}]: {band_name}")
-                except Exception as e:
-                    print(f"밴드 정보 추출 실패 [{idx}/{total_bands}]: {str(e)}")
-            
-            print("\n6. URL 기준 정렬 중...")
-            bands.sort(key=lambda x: int(x['url'].split('/')[-1]), reverse=True)
-            print("정렬 완료")
-            
-            if bands:
-                print("\n수집 결과:")
-                print(f"- 첫 번째 밴드: {bands[0]['name']} ({bands[0]['url']})")
-                print(f"- 마지막 밴드: {bands[-1]['name']} ({bands[-1]['url']})")
-            
-            return bands
-            
-        except Exception as e:
-            print(f"\n밴드 목록 수집 실패: {str(e)}")
-            raise
-
-    def post_to_band(self, band_info, post_url, url_number):
-        try:
-            print("\n" + "="*50)
-            print(f"포스팅 밴드: {band_info['name']}")
-            print(f"밴드 주소: {band_info['url']}")
-            print("="*50 + "\n")
-            
-            # 밴드로 이동
-            self.driver.get(band_info['url'])
-            print("밴드 페이지 로딩 중...")
-            time.sleep(10)  # 대기 시간 증가
-            
-            # 글쓰기 버튼 찾기
-            write_btn = None
-            write_btn_selectors = [
-                'button[class*="_btnPostWrite"]',  # 수정된 셀렉터
-                'button._btnPostWrite',
-                'button.uButton.-sizeL.-confirm.sf_bg',
-                'button.writePost',  # 추가된 셀렉터
-                'button[data-viewname="WriteFormView"]',  # 추가된 셀렉터
-                'button.uButton._btnPostWrite'  # 추가된 셀렉터
-            ]
-            
-            print("글쓰기 버튼 찾는 중...")
-            for selector in write_btn_selectors:
-                try:
-                    print(f"셀렉터 시도: {selector}")
-                    write_btn = WebDriverWait(self.driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                    )
-                    if write_btn and write_btn.is_displayed():
-                        print(f"✅ 글쓰기 버튼 발견: {selector}")
-                        break
-                except:
-                    continue
-                    
-            if not write_btn:
-                # 페이지 소스 출력
-                print("\n현재 페이지 버튼 elements 확인:")
-                buttons = self.driver.find_elements(By.TAG_NAME, 'button')
-                for btn in buttons:
-                    try:
-                        print(f"버튼 클래스: {btn.get_attribute('class')}")
-                    except:
-                        continue
-                raise Exception("글쓰기 버튼을 찾을 수 없습니다")
-
-            # 스크롤하여 버튼이 보이게 함
-            self.driver.execute_script("arguments[0].scrollIntoView(true);", write_btn)
-            time.sleep(2)
-                
-            print("📝 포스팅 작성 시작")
-            write_btn.click()
-            time.sleep(5)  # 대기 시간 증가
-            
-            # 에디터 찾기 (게시판 선택 전에 에디터부터 찾음)
-            editor = None
-            editor_selectors = [
-                'div.contentEditor._richEditor.skin3',
-                'div[contenteditable="true"][aria-labelledby="postWriteFormPlaceholderText"]',
-                'div.contentEditor[contenteditable="true"]'
-            ]
-            
-            for selector in editor_selectors:
-                try:
-                    editor = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                    )
-                    if (editor and editor.is_displayed()):
-                        print(f"✅ 에디터 발견: {selector}")
-                        break
-                except:
-                    continue
-            
-            if not editor:
-                raise Exception("에디터를 찾을 수 없습니다")
-            
-            # URL 입력 및 프리뷰 대기
-            fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
-            print(f"🔗 URL 입력: {fixed_url}")
-            editor.send_keys(fixed_url)
-            print("URL 입력 완료")
-            time.sleep(1)
-            
-            print("엔터키 입력")
-            editor.send_keys(Keys.ENTER)
-            print("10초 대기 시작...")
-            time.sleep(10)  # URL 입력 후 10초 대기
-            print("10초 대기 완료")
-
-            # 커서를 맨 앞으로 이동
-            print("커서를 맨 앞으로 이동...")
-            editor.send_keys(Keys.HOME)
-            time.sleep(1)
-            print("✅ 커서 이동 완료")
-            
-            # URL 길이만큼 DELETE로 삭제
-            print(f"URL 텍스트 삭제 중... (길이: {len(fixed_url)})")
-            for _ in range(len(fixed_url)):
-                editor.send_keys(Keys.DELETE)
-                time.sleep(0.1)
-            print("✅ URL 텍스트 삭제 완료")
-            time.sleep(1)
-
-            # 프리뷰 유지 확인
-            if not preview.is_displayed():
-                print("⚠️ 프리뷰가 사라짐, 다시 시도 필요")
-                return False
-
-            # 바로 게시 버튼 클릭
-            submit_btn = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-            )
-            print("✅ 게시 버튼 찾음")
-            submit_btn.click()
-            print("✅ 게시 버튼 클릭")
-            time.sleep(3)
-
-            # 게시판 선택 팝업 처리
-            try:
-                boardlist = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'boardList'))
-                )
-                print("✅ 게시판 선택 팝업 발견")
-                
-                # 첫 번째 게시판 클릭
-                first_board = boardlist.find_element(By.CSS_SELECTOR, 'li:first-child button')
-                first_board.click()
-                print("✅ 첫 번째 게시판 선택됨")
-                time.sleep(2)
-                
-                # 최종 게시 버튼 클릭
-                final_submit = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.uButton.-sizeM._btnSubmitPost.-confirm'))
-                )
-                final_submit.click()
-                print("✅ 게시 완료")
-                time.sleep(3)
-                
-            except Exception as e:
-                print("게시판 선택 팝업 없음 (기본 게시판으로 게시됨)")
-                time.sleep(3)
-            
-            return True
-            
-        except Exception as e:
-            print(f"❌ 게시 버튼 클릭 실패: {str(e)}")
-            return False
-                
-        except Exception as e:
-            print(f"❌ ======= 오류 발생 ========")
-            print(f"{str(e)}")
-            return False
-
-    def cleanup(self):
-        """리소스 정리"""
-        if self.driver:  # driver가 존재할 때만 정리
-            try:
-                self.driver.quit()
-            except:
-                pass
-            self.driver = None
-            
-        # VPN 연결 해제
-        try:
-            # VPN 해제 로직 추가 (실제 구현 필요)
-            print("VPN disconnected")
-        except:
-            pass
-
-    def __del__(self):
-        """소멸자에서 리소스 정리"""
-        self.cleanup()
-
-def main():
-    bot = None
-    try:
-        bot = BandAutoAction()
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y unzip shadowsocks-libev
+        pip install selenium requests beautifulsoup4 webdriver_manager
         
-        print("\n============== 작업 시작 ==============")
-        print("1. 로그인 시도...")
-        bot.login()  # 로그인 먼저 실행
+    - name: Setup VPN
+      run: |
+        echo '{
+          "server":"34.64.189.76",
+          "server_port":16978,
+          "password":"Nsy5l8wxxzHg4CXPKwEw6S",
+          "method":"chacha20-ietf-poly1305",
+          "local_address":"127.0.0.1",
+          "local_port":1080
+        }' > ss-config.json
+        ss-local -c ss-config.json -v &
+        sleep 5
+        curl --socks5 127.0.0.1:1080 http://ip-api.com/json
         
-        print("\n2. 밴드 목록 수집 중...")
-        bands = bot.get_band_list()
+    - name: Setup Chrome
+      uses: browser-actions/setup-chrome@latest
+
+    - name: Install Chrome and ChromeDriver
+      run: |
+        # 최신 안정버전 Chrome 설치
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
         
-        print("\n2. 설정 파일 읽기...")
-        with open(bot.config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
+        # Chrome 버전 확인
+        CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
+        CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION" | cut -d. -f1)
+        echo "설치된 Chrome 버전: $CHROME_VERSION"
+        
+        # Chrome for Testing API에서 매칭되는 ChromeDriver 찾기
+        API_URL="https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json"
+        MATCHING_DRIVER=$(curl -s "$API_URL" | \
+          jq -r ".versions[] | 
+          select(.version | startswith(\"$CHROME_MAJOR_VERSION.\")) |
+          .downloads.chromedriver[] | 
+          select(.platform==\"linux64\").url" | head -1)
+        
+        if [ -z "$MATCHING_DRIVER" ]; then
+          echo "호환되는 ChromeDriver를 찾을 수 없습니다."
+          exit 1
+        fi
+        
+        echo "다운로드할 ChromeDriver URL: $MATCHING_DRIVER"
+        
+        # ChromeDriver 다운로드 및 설치
+        wget -q "$MATCHING_DRIVER" -O chromedriver.zip
+        unzip -o chromedriver.zip
+        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        rm -rf chromedriver.zip chromedriver-linux64
+        
+        # 버전 확인
+        echo "=== 설치된 버전 정보 ==="
+        google-chrome --version
+        chromedriver --version
+
+    - name: Download Chrome Profile
+      run: |
+        echo "Chrome 프로필 다운로드 중..."
+        wget https://github.com/sd2624/qqqq071026242/raw/master/chrome_profile.zip -O chrome_profile.zip
+        
+        if [ ! -f "chrome_profile.zip" ]; then
+          echo "프로필 다운로드 실패"
+          exit 1
+        fi
+        
+        echo "프로필 다운로드 완료"
+        ls -la chrome_profile.zip
+        
+    - name: Check Profile Archive
+      run: |
+        if [ ! -f "chrome_profile.zip" ]; then
+          echo "chrome_profile.zip not found!"
+          exit 1
+        fi
+        echo "Found chrome_profile.zip"
+        
+    - name: Clean Chrome Processes
+      run: |
+        # 기존 Chrome 프로세스 강제 종료
+        echo "기존 Chrome 프로세스 정리 중..."
+        pgrep -x "chrome" && pkill -9 "chrome"
+        pgrep -x "chromedriver" && pkill -9 "chromedriver"
+        sleep 2
+
+    - name: Kill existing Chrome processes
+      run: pkill -9 chrome || true
+      
+    - name: Extract Chrome Profile
+      run: |
+        unzip chrome_profile.zip -d chrome-profile
+        chmod -R 777 chrome-profile
+        echo "CHROME_PROFILE_DIR=$(pwd)/chrome-profile" >> $GITHUB_ENV
+        ls -la chrome-profile/Default/
+
+    - name: Start Xvfb
+      run: Xvfb :99 -screen 0 1920x1080x24 &
+
+    - name: Set Display
+      run: echo "DISPLAY=:99" >> $GITHUB_ENV
+
+    - name: Setup Chrome Profile
+      run: |
+        # 고유한 프로필 디렉토리 설정
+        PROFILE_DIR="/tmp/chrome-profile-${GITHUB_RUN_ID}"
+        echo "프로필 디렉토리: $PROFILE_DIR"
+        
+        # 기존 프로필 완전 제거
+        sudo rm -rf "$PROFILE_DIR"
+        mkdir -p "$PROFILE_DIR/Default"
+        
+        # 프로필 압축 해제
+        echo "프로필 설정 중..."
+        unzip -o chrome_profile.zip -d "$PROFILE_DIR" || {
+          echo "프로필 압축 해제 실패"
+          exit 1
+        }
+        
+        # 권한 설정
+        sudo chown -R runner:docker "$PROFILE_DIR"
+        chmod -R 755 "$PROFILE_DIR"
+        
+        # 초기 디렉토리 구조 설정
+        for dir in "Cache" "Local Storage" "Session Storage" "Network" "Extension State"; do
+          mkdir -p "$PROFILE_DIR/Default/$dir"
+          chmod 755 "$PROFILE_DIR/Default/$dir"
+        done
+        
+        # 환경 변수 설정
+        {
+          echo "CHROME_PROFILE_DIR=$PROFILE_DIR"
+          echo "CHROME_BIN=/usr/bin/google-chrome-stable"
+        } >> $GITHUB_ENV
+        
+        echo "프로필 구조:"
+        ls -la "$PROFILE_DIR/Default/"
+
+    - name: Configure Chrome Profile
+      run: |
+        PROFILE_DIR="${CHROME_PROFILE_DIR}"
+        
+        # 필수 파일 확인
+        required_files=("Preferences" "Cookies" "Login Data")
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$PROFILE_DIR/Default/$file" ]; then
+            echo "생성: $file"
+            touch "$PROFILE_DIR/Default/$file"
+            chmod 644 "$PROFILE_DIR/Default/$file"
+          fi
+        done
+        
+        # 중요 디렉토리 권한 설정
+        for dir in "Cache" "Local Storage" "Session Storage" "Network"; do
+          dir_path="$PROFILE_DIR/Default/$dir"
+          if [ -d "$dir_path" ]; then
+            find "$dir_path" -type d -exec chmod 755 {} \;
+            find "$dir_path" -type f -exec chmod 644 {} \;
+          fi
+        done
+        
+        echo "프로필 구성 완료:"
+        ls -la "$PROFILE_DIR/Default/"
+
+    - name: Check and Setup Required Directories
+      run: |
+        # 프로필 디렉토리 확인
+        PROFILE_DIR="${CHROME_PROFILE_DIR}"
+        echo "프로필 디렉토리: $PROFILE_DIR"
+        
+        # 캐시 디렉토리 초기화
+        rm -rf "$PROFILE_DIR/Default/Cache"/*
+        mkdir -p "$PROFILE_DIR/Default/Cache"
+        
+        # 필수 디렉토리 생성
+        for dir in "Local Storage" "Session Storage" "Network"; do
+          mkdir -p "$PROFILE_DIR/Default/$dir"
+          chmod 755 "$PROFILE_DIR/Default/$dir"
+        done
+        
+        # 프로필 구조 확인
+        echo "프로필 구조 확인:"
+        ls -la "$PROFILE_DIR/Default/"
+
+    - name: Check Directory Structure
+      run: |
+        pwd
+        echo "현재 작업 디렉토리 구조:"
+        ls -la
+
+    - name: Run Auto Posting
+      env:
+        CHROME_PROFILE_PATH: ${CHROME_PROFILE_DIR}
+        XDG_CONFIG_HOME: ${CHROME_PROFILE_DIR}
+        DISPLAY: :99
+        ALL_PROXY: "socks5://127.0.0.1:1080"
+        CHROME_REMOTE_DEBUGGING_PORT: "9222"
+        PYTHONUNBUFFERED: 1
+        TZ: "Asia/Seoul"
+      run: |
+        export CHROME_OPTIONS="
+          --user-data-dir=${CHROME_PROFILE_DIR}
+          --profile-directory=Default
+          --no-sandbox
+          --disable-dev-shm-usage
+          --password-store=basic
+          --disable-gpu
+          --disable-software-rasterizer
+        "
+        
+        # Chrome 옵션 최소화
+        export CHROME_OPTIONS="
+          --user-data-dir=${CHROME_PROFILE_DIR}
+          --profile-directory=Default
+          --no-sandbox
+          --disable-dev-shm-usage
+          --disable-gpu
+          --password-store=basic
+          --disable-background-networking
+          --disable-default-apps
+          --disable-sync
+          --no-first-run
+        "
+        
+        # 프로필 디버그
+        echo "Chrome 프로필 위치: ${CHROME_PROFILE_DIR}"
+        ls -la ${CHROME_PROFILE_DIR}/Default/
+        
+        echo -e "\n\033[1;36m=== 밴드 자동 포스팅 시작 ===\033[0m"
+        echo -e "\033[1;33m현재 시각: $(date '+%Y-%m-%d %H:%M:%S')\033[0m"
+        echo -e "\033[1;36m======================================\033[0m\n"
+        
+        # 로그 파일 초기화 및 실시간 모니터링
+        {
+          echo "작업 시작 시간: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "======================================="
+          echo "1단계: 로그인 프로세스 시작"
+          echo "======================================="
+        } > band_auto.log
+        
+        # 스크립트 실행 및 실시간 로그 출력
+        PYTHONUNBUFFERED=1 python auto_band_action.py 2>&1 | while IFS= read -r line; do
+          timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+          
+          # 로그인 관련 메시지 우선 처리
+          case "$line" in
+            *"driver.get("*|*"이동:"*|*"URL:"*)
+              echo -e "\n\033[1;35m🌐 페이지 이동\033[0m"
+              echo "[$timestamp] 현재 URL: ${line#*\'}"  # URL 부분만 추출
+              echo "----------------------------------------"
+              ;;
+              
+            *"밴드로 이동"*|*"URL 주소:"*)
+              echo -e "\n\033[1;36m🔄 페이지 전환\033[0m"
+              echo "[$timestamp] $line"
+              echo "현재 작업: 밴드 페이지 로딩"
+              echo "----------------------------------------"
+              ;;
+              
+            *"로그인 시작"*|*"로그인 시도"*)
+              echo -e "\n\033[1;34m🔐 로그인 프로세스 시작\033[0m"
+              echo "[$timestamp] $line"
+              ;;
             
-        success_count = 0
-        
-        # 모든 밴드에 포스팅
-        for band_idx, band in enumerate(bands, 1):
-            if bot.post_to_band(band, None, band_idx):
-                success_count += 1
+            *"이메일 입력"*|*"비밀번호 입력"*)
+              echo -e "\033[1;33m⌨️  $line\033[0m"
+              echo "[$timestamp] $line"
+              ;;
             
-            # 다음 밴드로 이동 전 4~6분 랜덤 대기
-            if band_idx < len(bands):
-                wait_time = random.randint(240, 360)  # 4분(240초) ~ 6분(360초)
-                print(f"\n현재 진행 상황:")
-                print(f"- 밴드 진행: {band_idx}/{len(bands)}")
-                print(f"- 성공: {success_count}회")
-                print(f"다음 밴드로 이동 전 {wait_time}초({wait_time/60:.1f}분) 대기...")
-                time.sleep(wait_time)
-        
-        print(f"\n포스팅 통계:")
-        print(f"- 총 시도: {len(bands)}회")
-        print(f"- 성공: {success_count}회")
-        print(f"- 실패: {len(bands) - success_count}회")
-        
-        print("\n============== 모든 작업 완료 ==============")
-        
-    except Exception as e:
-        print(f"\n============== 오류 발생 ==============")
-        print(f"Error: {str(e)}")
-        print("=======================================")
-    finally:
-        if bot:
-            bot.cleanup()
+            *"로그인 성공"*)
+              echo -e "\033[1;32m✅ 로그인 성공!\033[0m"
+              echo "[$timestamp] $line"
+              echo "----------------------------------------"
+              ;;
+              
+            *"VPN 상태"*|*"현재 IP"*)
+              echo -e "\033[1;36m🌐 $line\033[0m"
+              echo "[$timestamp] $line"
+              ;;
+              
+            *"로그인 시작"*)
+              echo ""
+              echo "🔵 ========= 로그인 프로세스 시작 ========="
+              echo "[$timestamp] $line"
+              echo "현재 단계: 로그인 페이지 접속 시도"
+              ;;
+              
+            *"로그인 페이지 이동"*)
+              echo "[$timestamp] ✓ 로그인 페이지 접속 완료"
+              echo "현재 단계: 이메일 로그인 버튼 찾는 중"
+              ;;
+              
+            *"이메일 로그인 버튼"*)
+              echo "[$timestamp] ✓ 이메일 로그인 버튼 발견"
+              echo "현재 단계: 이메일 입력 준비"
+              ;;
+              
+            *"이메일 입력 완료"*)
+              echo "[$timestamp] ✓ 이메일 입력 완료"
+              echo "현재 단계: 다음 버튼 클릭"
+              ;;
+              
+            *"다음 버튼 클릭"*)
+              echo "[$timestamp] ✓ 다음 단계로 이동"
+              echo "현재 단계: 비밀번호 입력 준비"
+              ;;
+              
+            *"비밀번호 입력"*)
+              echo "[$timestamp] 🔑 비밀번호 입력 중..."
+              ;;
+              
+            *"비밀번호 입력 완료"*)
+              echo "[$timestamp] ✓ 비밀번호 입력 완료"
+              echo "현재 단계: 로그인 버튼 클릭"
+              ;;
+              
+            *"로그인 버튼 클릭"*)
+              echo "[$timestamp] 🔄 로그인 시도 중..."
+              ;;
+              
+            *"로그인 성공"*)
+              echo "[$timestamp] ✅ 로그인 성공!"
+              echo "========= 로그인 프로세스 완료 ========="
+              echo ""
+              ;;
+              
+            *"로그인 실패"*|*"오류"*)
+              echo "[$timestamp] ❌ 로그인 실패!"
+              echo "에러 내용: $line"
+              echo "========= 로그인 프로세스 실패 ========="
+              echo ""
+              ;;
+              
+            *"현재 작업 중인 URL"*)
+              echo "🔗 ======= URL 작업 정보 ========"
+              echo "[$timestamp] $line"
+              ;;
+              
+            *"밴드로 이동"*|*"URL 주소:"*)
+              echo "🌐 현재 페이지 이동"
+              echo "[$timestamp] $line"
+              ;;
+              
+            *"글쓰기 버튼"*)
+              echo "📝 포스팅 작성 시작"
+              echo "[$timestamp] $line"
+              ;;
+              
+            *"URL 입력 중"*)
+              echo "⌨️ URL 입력"
+              echo "[$timestamp] $line"
+              ;;
+              
+            *"미리보기 로딩"*)
+              echo "⏳ 미리보기 로딩"
+              echo "[$timestamp] $line"
+              ;;
+              
+            *"포스팅 완료"*)
+              echo "✅ ======= 포스팅 완료 ========"
+              echo "[$timestamp] $line"
+              echo "================================"
+              ;;
+              
+            *"실패"*|*"오류"*)
+              echo "❌ ======= 오류 발생 ========"
+              echo "[$timestamp] $line"
+              echo "=============================="
+              ;;
+              
+            *"대기 시작"*|*"남은 시간"*)
+              echo "⏰ 대기 상태"
+              echo "[$timestamp] $line"
+              ;;
+              
+            *)
+              echo "[$timestamp] $line"
+              ;;
+          esac
+          
+          # URL 패턴 감지 및 로깅
+          if [[ "$line" =~ https?:// ]]; then
+            echo -e "\033[1;34m🔗 접속 URL: $line\033[0m"
+          fi
+          
+          echo "[$timestamp] $line" >> band_auto.log
+          
+        done
 
-if __name__ == "__main__":
-    main()
-
-
-
-
-
+        echo -e "\n=== 실행 통계 생성 ==="
+        {
+          echo "1. 로그인 프로세스"
+          echo "- 시도 횟수: $(grep -c "로그인 시작" band_auto.log)"
+          echo "- 성공 횟수: $(grep -c "로그인 성공" band_auto.log)"
+          
+          echo -e "\n2. URL 작업 현황"
+          echo "- 처리된 URL 수: $(grep -c "현재 작업 중인 URL" band_auto.log)"
+          echo "- 페이지 이동 수: $(grep -c "밴드로 이동" band_auto.log)"
+          
+          echo -e "\n3. 포스팅 통계"
+          echo "- 글쓰기 시도: $(grep -c "글쓰기 버튼" band_auto.log)"
+          echo "- 포스팅 성공: $(grep -c "포스팅 완료" band_auto.log)"
+          echo "- 실패/오류: $(grep -c "실패\|오류" band_auto.log)"
+          
+          echo -e "\n4. 상세 URL 기록"
+          echo "처리된 URL 목록:"
+          grep "URL 주소:" band_auto.log
+          
+          echo -e "\n5. 마지막 작업 상태"
+          tail -n 20 band_auto.log
+          
+        } | tee execution_summary.txt
