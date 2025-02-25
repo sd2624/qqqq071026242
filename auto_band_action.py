@@ -506,14 +506,16 @@ class BandAutoAction:
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
 
-            # 커서를 맨 앞으로 이동하여 한 글자만 삭제
+            # 커서를 맨 앞으로 이동하여 10글자 삭제
             print("커서를 맨 앞으로 이동...")
             editor.send_keys(Keys.HOME)
             time.sleep(1)
-            print("한 글자 삭제...")
-            editor.send_keys(Keys.DELETE)
+            print("10글자 삭제 시작...")
+            for i in range(10):
+                editor.send_keys(Keys.DELETE)
+                time.sleep(0.1)
+            print("✅ 10글자 삭제 완료")
             time.sleep(1)
-            print("✅ 삭제 완료")
 
             # 바로 게시 버튼 클릭
             submit_btn = WebDriverWait(self.driver, 5).until(
