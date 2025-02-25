@@ -18,12 +18,30 @@ class BandAutoAction:
         self.config_path = os.path.join(self.script_dir, 'config.json')
         self.bands_file = os.path.join(self.script_dir, 'band_urls.json')
         self.driver = None  # driver 초기화 추가
+        self.url_move_count = 0  # URL 이동 횟수 초기화
+        self.relogin_interval = 8  # 8회마다 재로그인하도록 설정
         self.setup_vpn()
         
         # driver 설정 실패 시 예외 처리 추가
         if not self.setup_driver():
             raise Exception("Chrome driver 초기화 실패")
             
+        self.url_list = [
+            "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html",
+            "https://testpro.site/%EC%97%B0%EC%9D%B8/%EC%97%B0%EC%9D%B8.html",
+            "https://testpro.site/%EC%83%89/index.html",
+            "https://testpro.site/%EB%8F%99%EB%AC%BC/%EB%8F%99%EB%AC%BC.html",
+            "https://testpro.site/%ED%96%89%EC%9A%B4/index.html",
+            "https://testpro.site/%ED%83%80%EB%A1%9C/index.html",
+            "https://testpro.site/%EC%8A%A4%ED%8A%B8%EB%A0%88%EC%8A%A4/index.html",
+            "https://testpro.site/%EB%8F%88/index.html",
+            "https://testpro.site/%EC%82%AC%EB%9E%91/index.html",
+            "https://testpro.site/%EA%B0%90%EC%A0%95/index.html",
+            "https://testpro.site/%ED%96%89%EB%B3%B5/index.html",
+            "https://testpro.site/mbti/index.html"
+        ]
+        self.current_url_index = 0
+
     def setup_vpn(self):
         """한국 VPN 연결 확인"""
         try:
@@ -416,6 +434,12 @@ class BandAutoAction:
             print(f"\n밴드 목록 수집 실패: {str(e)}")
             raise
 
+    def get_current_url(self):
+        """현재 사용할 URL 반환"""
+        if self.current_url_index < len(self.url_list):
+            return self.url_list[self.current_url_index]
+        return self.url_list[0]  # 마지막 URL 이후에는 첫 번째 URL로 돌아감
+
     def post_to_band(self, band_info, post_url, url_number):
         try:
             print("\n" + "="*50)
@@ -494,10 +518,11 @@ class BandAutoAction:
                 raise Exception("에디터를 찾을 수 없습니다")
             
             # URL 입력 및 대기
-            fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
+            fixed_url = self.get_current_url()
             url_length = len(fixed_url)
             
             print(f"🔗 URL 입력: {fixed_url} (길이: {url_length})")
+            print(f"현재 URL 순서: {self.current_url_index + 1}/{len(self.url_list)}")
             editor.send_keys(fixed_url)
             print("URL 입력 완료")
             time.sleep(1)
@@ -565,6 +590,17 @@ class BandAutoAction:
                 print("게시판 선택 팝업 없음 (기본 게시판으로 게시됨)")
                 time.sleep(3)
             
+            # 게시 완료 후 URL 이동 카운트 증가 및 재로그인 체크
+            self.url_move_count += 1
+            if self.url_move_count % self.relogin_interval == 0:  # 8회마다 재로그인
+                print(f"URL 이동 횟수가 {self.url_move_count}회가 되어 재로그인합니다...")
+                print(f"(설정된 재로그인 간격: {self.relogin_interval}회)")
+                self.driver.get('https://auth.band.us/email_login?keep_login=false')
+                time.sleep(5)
+                self.login()
+                self.wait_for_main_page()
+                print("재로그인 완료")
+            
             return True
             
         except Exception as e:
@@ -599,42 +635,56 @@ class BandAutoAction:
 def main():
     bot = None
     try:
-        bot = BandAutoAction()
-        
-        print("\n============== 작업 시작 ==============")
-        print("1. 로그인 시도...")
-        bot.login()  # 로그인 먼저 실행
-        
-        print("\n2. 밴드 목록 수집 중...")
-        bands = bot.get_band_list()
-        
-        print("\n2. 설정 파일 읽기...")
-        with open(bot.config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
+        while True:  # 무한 반복
+            bot = BandAutoAction()
             
-        success_count = 0
-        
-        # 모든 밴드에 포스팅
-        for band_idx, band in enumerate(bands, 1):
-            if bot.post_to_band(band, None, band_idx):
-                success_count += 1
+            print("\n============== 작업 시작 ==============")
+            print("1. 로그인 시도...")
+            bot.login()
             
-            # 다음 밴드로 이동 전 4~6분 랜덤 대기
-            if band_idx < len(bands):
-                wait_time = random.randint(240, 360)  # 4분(240초) ~ 6분(360초)
-                print(f"\n현재 진행 상황:")
-                print(f"- 밴드 진행: {band_idx}/{len(bands)}")
-                print(f"- 성공: {success_count}회")
-                print(f"다음 밴드로 이동 전 {wait_time}초({wait_time/60:.1f}분) 대기...")
-                time.sleep(wait_time)
-        
-        print(f"\n포스팅 통계:")
-        print(f"- 총 시도: {len(bands)}회")
-        print(f"- 성공: {success_count}회")
-        print(f"- 실패: {len(bands) - success_count}회")
-        
-        print("\n============== 모든 작업 완료 ==============")
-        
+            print("\n2. 밴드 목록 수집 중...")
+            bands = bot.get_band_list()
+            
+            success_count = 0
+            
+            # 모든 밴드에 포스팅
+            for band_idx, band in enumerate(bands, 1):
+                if bot.post_to_band(band, None, band_idx):
+                    success_count += 1
+                
+                if band_idx < len(bands):
+                    wait_time = random.randint(240, 360)
+                    print(f"\n현재 진행 상황:")
+                    print(f"- 밴드 진행: {band_idx}/{len(bands)}")
+                    print(f"- 성공: {success_count}회")
+                    print(f"다음 밴드로 이동 전 {wait_time}초({wait_time/60:.1f}분) 대기...")
+                    time.sleep(wait_time)
+            
+            print(f"\n포스팅 통계:")
+            print(f"- 총 시도: {len(bands)}회")
+            print(f"- 성공: {success_count}회")
+            print(f"- 실패: {len(bands) - success_count}회")
+            
+            print("\n============== 모든 작업 완료 ==============")
+            
+            # URL 인덱스 증가
+            bot.current_url_index = (bot.current_url_index + 1) % len(bot.url_list)
+            print(f"\n다음 실행 시 사용할 URL: {bot.get_current_url()}")
+            
+            # 1시간 대기
+            print("\n1시간 대기 시작...")
+            for remaining in range(3600, 0, -1):
+                mins, secs = divmod(remaining, 60)
+                print(f"\r다음 실행까지 {mins}분 {secs}초 남음...", end='')
+                time.sleep(1)
+            print("\n대기 완료, 다음 URL로 실행합니다.")
+            
+            # 리소스 정리
+            if bot:
+                bot.cleanup()
+                
+    except KeyboardInterrupt:
+        print("\n프로그램 종료 요청됨...")
     except Exception as e:
         print(f"\n============== 오류 발생 ==============")
         print(f"Error: {str(e)}")
