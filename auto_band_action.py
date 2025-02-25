@@ -506,14 +506,25 @@ class BandAutoAction:
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
 
-            # 커서를 맨 앞으로 이동하여 10글자 삭제
+            # JavaScript로 커서를 맨 앞으로 이동
             print("커서를 맨 앞으로 이동...")
-            editor.send_keys(Keys.HOME)
+            self.driver.execute_script("""
+                var editor = document.querySelector('div[contenteditable="true"]');
+                var range = document.createRange();
+                range.setStart(editor, 0);
+                range.setEnd(editor, 0);
+                var sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            """)
             time.sleep(1)
+
+            # 10글자 삭제
             print("10글자 삭제 시작...")
             for i in range(10):
                 editor.send_keys(Keys.DELETE)
-                time.sleep(0.1)
+                time.sleep(0.2)  # 딜레이 증가
+                print(f"글자 삭제 중: {i+1}/10")
             print("✅ 10글자 삭제 완료")
             time.sleep(1)
 
