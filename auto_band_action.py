@@ -493,7 +493,7 @@ class BandAutoAction:
             if not editor:
                 raise Exception("에디터를 찾을 수 없습니다")
             
-            # URL 입력 및 프리뷰 생성
+            # URL 입력 및 프리뷰 대기
             fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
             print(f"🔗 URL 입력: {fixed_url}")
             editor.send_keys(fixed_url)
@@ -502,29 +502,27 @@ class BandAutoAction:
             
             print("엔터키 입력")
             editor.send_keys(Keys.ENTER)
-            print("10초 대기 시작...")
-            time.sleep(10)  # URL 입력 후 10초 대기
-            print("10초 대기 완료")
-
-            # 커서를 맨 앞으로 이동 후 오른쪽으로 2칸 이동
-            print("커서 이동 시작...")
-            editor.send_keys(Keys.HOME)  # 커서를 맨 앞으로
-            time.sleep(0.5)
-            editor.send_keys(Keys.RIGHT)  # 오른쪽으로 1칸
-            time.sleep(0.5)
-            editor.send_keys(Keys.RIGHT)  # 오른쪽으로 1칸 더
-            time.sleep(0.5)
-            print("커서 2칸 이동 완료")
+            print("프리뷰 대기 시작...")
             
-            # URL 길이만큼 백스페이스로 삭제
-            print(f"URL 텍스트 백스페이스로 삭제 시작... (길이: {len(fixed_url)})")
-            for i in range(len(fixed_url)):
-                editor.send_keys(Keys.BACKSPACE)
-                time.sleep(0.1)
-                if (i + 1) % 10 == 0:  # 진행상황 출력
-                    print(f"삭제 진행 중: {i+1}/{len(fixed_url)}")
+            # 프리뷰 생성 확인
+            preview = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div.urlPreview'))
+            )
+            print("✅ 프리뷰 확인됨")
+            time.sleep(2)  # 프리뷰 완전 로딩 대기
+
+            # URL 텍스트 삭제
+            print("URL 텍스트 선택 및 삭제...")
+            editor.send_keys(Keys.CONTROL + 'a')  # 전체 선택
+            time.sleep(0.5)
+            editor.send_keys(Keys.DELETE)  # 삭제
             print("✅ URL 텍스트 삭제 완료")
             time.sleep(1)
+
+            # 프리뷰 유지 확인
+            if not preview.is_displayed():
+                print("⚠️ 프리뷰가 사라짐, 다시 시도 필요")
+                return False
 
             # 바로 게시 버튼 클릭
             submit_btn = WebDriverWait(self.driver, 5).until(
