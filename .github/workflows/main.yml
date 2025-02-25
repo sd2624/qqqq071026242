@@ -2,8 +2,6 @@ name: Band Auto Posting
 
 on:
   workflow_dispatch:  # 수동 실행 가능
-  schedule:
-    - cron: '0 */1 * * *'  # 매 시간마다 실행
 
 jobs:
   post:
