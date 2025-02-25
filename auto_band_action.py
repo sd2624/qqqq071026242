@@ -493,7 +493,7 @@ class BandAutoAction:
             if not editor:
                 raise Exception("에디터를 찾을 수 없습니다")
             
-            # URL 입력 및 프리뷰 대기
+            # URL 입력 및 엔터
             fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
             print(f"🔗 URL 입력: {fixed_url}")
             editor.send_keys(fixed_url)
@@ -505,25 +505,6 @@ class BandAutoAction:
             print("10초 대기 시작...")
             time.sleep(10)  # URL 입력 후 10초 대기
             print("10초 대기 완료")
-
-            # 커서를 맨 앞으로 이동
-            print("커서를 맨 앞으로 이동...")
-            editor.send_keys(Keys.HOME)
-            time.sleep(1)
-            print("✅ 커서 이동 완료")
-            
-            # URL 길이만큼 DELETE로 삭제
-            print(f"URL 텍스트 삭제 중... (길이: {len(fixed_url)})")
-            for _ in range(len(fixed_url)):
-                editor.send_keys(Keys.DELETE)
-                time.sleep(0.1)
-            print("✅ URL 텍스트 삭제 완료")
-            time.sleep(1)
-
-            # 프리뷰 유지 확인
-            if not preview.is_displayed():
-                print("⚠️ 프리뷰가 사라짐, 다시 시도 필요")
-                return False
 
             # 바로 게시 버튼 클릭
             submit_btn = WebDriverWait(self.driver, 5).until(
