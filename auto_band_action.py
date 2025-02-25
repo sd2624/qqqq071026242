@@ -496,7 +496,6 @@ class BandAutoAction:
             # URL 입력 및 대기
             fixed_url = "https://testpro.site/%EC%97%90%EB%A6%AC%EC%96%B4/%EC%97%90%EB%A6%AC%EC%96%B4.html"
             url_length = len(fixed_url)
-            delete_count = url_length - 1  # URL 길이보다 1 적게 삭제
             
             print(f"🔗 URL 입력: {fixed_url} (길이: {url_length})")
             editor.send_keys(fixed_url)
@@ -522,14 +521,14 @@ class BandAutoAction:
             """)
             time.sleep(1)
 
-            # URL 길이 - 1만큼 삭제
-            print(f"글자 삭제 시작... ({delete_count}자 삭제 예정)")
-            for i in range(delete_count):
+            # URL 전체 길이만큼 삭제
+            print(f"URL 텍스트 삭제 시작... (전체 {url_length}자)")
+            for i in range(url_length):
                 editor.send_keys(Keys.DELETE)
                 time.sleep(0.2)
                 if (i + 1) % 10 == 0:
-                    print(f"삭제 진행 중: {i+1}/{delete_count}")
-            print(f"✅ {delete_count}자 삭제 완료 (1자 남김)")
+                    print(f"삭제 진행 중: {i+1}/{url_length}")
+            print(f"✅ URL 텍스트 전체 삭제 완료")
             time.sleep(1)
 
             # 바로 게시 버튼 클릭
